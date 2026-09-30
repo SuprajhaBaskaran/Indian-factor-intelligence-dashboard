@@ -1,10 +1,17 @@
 import { Badge, Card, Table } from "@/components/UI";
 import { getEodRefreshStatus, getLangGraphRunReport } from "@/lib/data";
 import { assessDailyRisk } from "@/lib/product";
+import type { EodRefreshStatus } from "@/types";
+
+type EodRefreshStatusWithAttempts = EodRefreshStatus & {
+  last_attempted_date?: string | null;
+  last_attempted_status?: string | null;
+  last_attempted_message?: string | null;
+};
 
 export function AdminStatusPage() {
   const eod = getEodRefreshStatus();
-  const eodMeta = eod as any;
+  const eodMeta = eod as EodRefreshStatusWithAttempts;
   const report = getLangGraphRunReport();
   const risk = assessDailyRisk();
 

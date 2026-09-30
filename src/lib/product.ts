@@ -2,8 +2,6 @@ import type {
   AllocationDecision,
   BacktestSummary,
   FactorAllocation,
-  PortfolioTarget,
-  StockPricePoint,
 } from "@/types";
 import {
   formatPercent,
@@ -14,7 +12,6 @@ import {
   getLatestRegime,
   getNewsDailyFeatures,
   getPortfolioTargets,
-  getRebalanceTrades,
   getSectorExposure,
   getStocks,
   getStockPrices,
