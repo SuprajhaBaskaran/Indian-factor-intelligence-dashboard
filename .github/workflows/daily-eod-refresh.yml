@@ -2,21 +2,13 @@ name: Daily EOD Refresh
 run-name: Daily EOD Refresh - ${{ github.event_name }}
 
 on:
-  # No `schedule:` trigger on purpose.
-  #
-  # This workflow is driven by console.cron-job.org, which fires
-  # `repository_dispatch` at 18:00 IST daily using a fine-grained GitHub token
-  # with read+write. Adding GitHub's own cron here would run the job twice a
-  # day for no benefit: the second run finds nothing new and commits nothing.
-  #
-  # The trade-off, stated rather than hidden: that depends on an external
-  # service and a token. Fine-grained tokens expire, and when one does the
-  # refreshes stop with no local symptom -- the last successful run simply
-  # stops appearing on the Actions page. The "Verify the data actually
-  # advanced" step below is what makes that visible, because it compares the
-  # newest close against the last trading day rather than trusting the exit
-  # code, which --allow-no-data makes meaningless.
+  # Runs after Indian market close. GitHub cron uses UTC, so 14:30 UTC is
+  # 20:00 IST. That gives NSE EOD files time to appear before the pipeline
+  # checks freshness and publishes the updated dashboard data.
+  schedule:
+    - cron: "30 14 * * 1-5"
   workflow_dispatch:
+  # Optional external trigger kept for future cron-job.org or backend calls.
   repository_dispatch:
     types: [daily-eod-refresh]
 
