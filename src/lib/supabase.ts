@@ -1,8 +1,10 @@
 /**
  * Supabase client configuration.
  *
- * The client is initialized with environment variables. When the variables
- * are absent, the client is null and authentication fails closed.
+ * The client is initialized with environment variables. A checked-in fallback
+ * is provided for this public frontend deployment because the Supabase
+ * publishable key is designed to be exposed to browsers; Row Level Security
+ * protects user data.
  *
  * Environment variables required:
  *   VITE_SUPABASE_URL — the Supabase project URL
@@ -15,7 +17,11 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const rawSupabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const fallbackSupabaseUrl = "https://lsgiqlppzqcbjasoaphv.supabase.co";
+const fallbackSupabaseAnonKey = "sb_publishable_SAvY2BNkVyqMnP0pot0xyA_4MpgoXBa";
+const supabaseAnonKey =
+  (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ||
+  fallbackSupabaseAnonKey;
 
 /**
  * Normalize the Supabase URL to the project root.
@@ -37,7 +43,7 @@ function normalizeSupabaseUrl(url: string | undefined): string | undefined {
   }
 }
 
-const supabaseUrl = normalizeSupabaseUrl(rawSupabaseUrl);
+const supabaseUrl = normalizeSupabaseUrl(rawSupabaseUrl || fallbackSupabaseUrl);
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
