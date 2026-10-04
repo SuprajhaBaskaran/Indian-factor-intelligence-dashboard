@@ -155,6 +155,48 @@ export interface FactorAllocation {
   risk_event_count?: number;
   news_confidence?: number;
   news_stress_score?: number;
+  ensemble_gmm_weight?: number;
+  ensemble_hmm_weight?: number;
+  ensemble_jump_weight?: number;
+  ensemble_bayesian_weight?: number;
+  winner_baseline_model?: string;
+}
+
+export interface EnsembleOptimizerReport {
+  generated_at: string;
+  method: string;
+  selection_mode: "weighted_ensemble" | string;
+  latest_month?: string | null;
+  candidate_count: number;
+  objective: {
+    score: string;
+    why_weighted_ensemble: string;
+  };
+  selected_parameters: {
+    er_window: number;
+    er_halflife: number;
+    turnover_penalty: number;
+    concentration_penalty: number;
+    news_multiplier: number;
+  };
+  selected_model_weights: Record<string, number>;
+  selected_metrics: Record<string, number>;
+  winner_baseline?: Record<string, string | number>;
+  model_family_baselines?: Record<string, string | number>[];
+  leaderboard?: {
+    rank: number;
+    score: number;
+    sharpe: number;
+    max_drawdown: number;
+    hit_rate: number;
+    er_window: number;
+    er_halflife: number;
+    turnover_penalty: number;
+    concentration_penalty: number;
+    news_multiplier: number;
+    model_weights: Record<string, number>;
+  }[];
+  component_definitions?: Record<string, string>;
 }
 
 /** The four factor weight fields of {@link FactorAllocation}. */

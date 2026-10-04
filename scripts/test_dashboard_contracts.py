@@ -114,6 +114,27 @@ def test_allocation_weights_sum_to_one():
     assert not bad, f"allocations not summing to 1.0: {bad[:5]}"
 
 
+def test_ensemble_optimizer_artifact_is_valid_when_present():
+    """The ensemble report must describe a real weighted model choice.
+
+    This protects the research claim: if the dashboard says weighted ensemble,
+    the artifact must publish weights that sum to one and a baseline winner for
+    comparison rather than hiding a fixed hand-written choice.
+    """
+    path = os.path.join(DATA, "ensemble_optimizer.json")
+    if not os.path.exists(path):
+        return
+    report = load("ensemble_optimizer")
+    assert report.get("selection_mode") == "weighted_ensemble"
+    weights = report.get("selected_model_weights") or {}
+    assert {"gmm_regime", "hmm_persistence", "jump_risk", "bayesian_recent"} <= set(weights)
+    total = sum(float(v) for v in weights.values())
+    assert abs(total - 1.0) <= 1e-3, f"ensemble weights sum to {total:.4f}"
+    assert report.get("candidate_count", 0) >= 20, "too few optimizer candidates evaluated"
+    assert report.get("winner_baseline", {}).get("model"), "no single-model baseline winner reported"
+    assert report.get("leaderboard"), "no optimizer leaderboard reported"
+
+
 def test_portfolio_target_weights_do_not_exceed_position_cap():
     """No single holding may exceed the 5% cap the construction enforces."""
     targets = _rows("portfolio_targets")

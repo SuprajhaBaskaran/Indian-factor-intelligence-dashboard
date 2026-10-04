@@ -31,6 +31,7 @@ import forward_outlook
 import selection_bias
 import experiment_manifest
 import data_freshness
+import ensemble_optimizer
 
 # All-in transaction cost in basis points of traded notional. India: brokerage,
 # STT, exchange and SEBI charges, GST, stamp duty and spread together sit in
@@ -1248,6 +1249,18 @@ def allocation_optimizer_agent(factor_returns, diagnostics, regime_preds, news_f
     print("[AllocationOptimizerAgent] Starting...")
     allocations = []
     decisions = []
+    ensemble_report = ensemble_optimizer.optimize_allocation_ensemble(
+        factor_returns, diagnostics, regime_preds, news_features
+    )
+    write_json("ensemble_optimizer", ensemble_report)
+    ensemble_params = ensemble_report.get("selected_parameters") or {}
+    ensemble_weights = ensemble_report.get("selected_model_weights") or {
+        "gmm_regime": 0.35,
+        "hmm_persistence": 0.30,
+        "jump_risk": 0.20,
+        "bayesian_recent": 0.15,
+    }
+    winner_baseline = (ensemble_report.get("winner_baseline") or {}).get("model", "")
 
     regime_lookup = {str(p["month"])[:7]: p for p in regime_preds}
     diag_lookup = {str(d["month"])[:7]: d for d in diagnostics}
@@ -1271,10 +1284,13 @@ def allocation_optimizer_agent(factor_returns, diagnostics, regime_preds, news_f
     # barely moves over 150 months and would pin the weights near constant.
     # Observations are exponentially decayed so recent months carry more weight
     # without discarding the older sample entirely.
-    ER_WINDOW = 24
-    ER_HALFLIFE = 12.0
+    ER_WINDOW = int(ensemble_params.get("er_window", 24))
+    ER_HALFLIFE = float(ensemble_params.get("er_halflife", 12.0))
     MIN_ER_OBS = 12
     prior_vol = 0.04  # ~4% monthly factor volatility, used only as a fallback
+    turnover_pen = float(ensemble_params.get("turnover_penalty", 0.02))
+    concentration_pen = float(ensemble_params.get("concentration_penalty", 0.05))
+    news_multiplier = float(ensemble_params.get("news_multiplier", 1.0))
 
     for idx, fr in enumerate(factor_returns):
         month = fr["month"]
@@ -1296,10 +1312,10 @@ def allocation_optimizer_agent(factor_returns, diagnostics, regime_preds, news_f
             er = np.zeros(4)
 
         news = news_lookup.get(month, {})
-        ns = news_stress_score(news)
-        if ns > 0:
-            # High-confidence negative news penalizes aggressive Momentum/Value and supports defensive factors.
-            er = er + np.array([-0.035 * ns, -0.020 * ns, 0.012 * ns, 0.018 * ns])
+        ns = ensemble_optimizer.news_stress_score(news)
+        er = ensemble_optimizer.adjusted_expected_returns(
+            er, regime, news, ensemble_weights, news_multiplier
+        )
 
         # Covariance from the expanding-window diagnostics, which are built
         # only from months up to and including this one.
@@ -1331,9 +1347,6 @@ def allocation_optimizer_agent(factor_returns, diagnostics, regime_preds, news_f
         # size of that return.
         best_w = np.array([0.25, 0.25, 0.25, 0.25])
         best_util = -1e9
-        turnover_pen = 0.02
-        concentration_pen = 0.05
-
         # Diagnostics may report no redundancy (too few observations); treat
         # that as "no evidence of redundancy" rather than as a number.
         redundancy = (diag or {}).get("redundancy_score")
@@ -1413,7 +1426,12 @@ def allocation_optimizer_agent(factor_returns, diagnostics, regime_preds, news_f
             "er_observations": len(window),
             "turnover": round(turnover, 4),
             "redundancy_score": redundancy,
-            "optimizer_status": "grid_search_5pct_news_adjusted",
+            "optimizer_status": "bayesian_weighted_ensemble_grid_search",
+            "ensemble_gmm_weight": round(float(ensemble_weights.get("gmm_regime", 0.0)), 4),
+            "ensemble_hmm_weight": round(float(ensemble_weights.get("hmm_persistence", 0.0)), 4),
+            "ensemble_jump_weight": round(float(ensemble_weights.get("jump_risk", 0.0)), 4),
+            "ensemble_bayesian_weight": round(float(ensemble_weights.get("bayesian_recent", 0.0)), 4),
+            "winner_baseline_model": winner_baseline,
             "news_sentiment": round(float(news.get("news_sentiment", 0.0)), 4),
             "negative_news_ratio": round(float(news.get("negative_news_ratio", 0.0)), 4),
             "risk_event_count": round(float(news.get("risk_event_count", 0.0)), 4),

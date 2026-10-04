@@ -61,7 +61,7 @@ export function AllocationPage() {
       <div>
         <h2 className="text-xl font-bold text-slate-900">Allocation Dashboard</h2>
         <p className="text-sm text-slate-500 mt-1">
-          Dynamic factor allocation via grid-search optimization with decision gate
+          Bayesian-tuned weighted ensemble feeding constrained factor allocation
         </p>
       </div>
 
@@ -90,8 +90,8 @@ export function AllocationPage() {
         />
         <StatCard
           label="Optimizer Status"
-          value={latest?.optimizer_status?.replace("grid_search_", "Grid ") || "—"}
-          subvalue="5% increments"
+          value={latest?.optimizer_status?.replaceAll("_", " ") || "—"}
+          subvalue="Ensemble + 5% grid"
           icon={<Target className="w-5 h-5" />}
           color="blue"
         />
