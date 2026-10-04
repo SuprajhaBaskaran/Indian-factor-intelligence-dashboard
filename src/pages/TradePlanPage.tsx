@@ -50,6 +50,7 @@ export function TradePlanPage() {
   const userData = useUserData();
   const { user } = useAuth();
   const experience = user ? readUserExperience(user.id) : null;
+  const startedFresh = experience?.hasInvestments === false;
   const [mode, setMode] = useState<TradeMode>(() => experience?.hasInvestments ? "rebalance" : "fresh");
   const [holdingsText, setHoldingsText] = useState("");
   const [bulkEntryText, setBulkEntryText] = useState("");
@@ -269,36 +270,59 @@ export function TradePlanPage() {
       </div>
 
       {/* ── MODE SELECTION ───────────────────────────────────────────────── */}
-      <div className="grid gap-3 lg:grid-cols-2">
-        <button
-          onClick={() => setMode("fresh")}
-          className={`rounded-xl border p-4 text-left shadow-sm transition ${
-            mode === "fresh" ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:bg-slate-50"
-          }`}
-        >
-          <div className="flex items-start gap-3">
-            <Wallet className={`mt-0.5 h-5 w-5 ${mode === "fresh" ? "text-blue-700" : "text-slate-500"}`} />
-            <div>
-              <p className="text-sm font-bold text-slate-950">New investor / fresh money</p>
-              <p className="mt-1 text-xs leading-5 text-slate-600">Ask how much money they will invest, then suggest what to buy from the AI model.</p>
+      {startedFresh ? (
+        <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <Wallet className="mt-0.5 h-5 w-5 text-blue-700" />
+              <div>
+                <p className="text-sm font-bold text-slate-950">You are building a fresh plan</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                  Start with your investment amount. After you actually buy stocks, you can add those holdings here and the page will switch to portfolio review.
+                </p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => setMode("rebalance")}
+              className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+            >
+              I now have holdings to add
+            </button>
           </div>
-        </button>
-        <button
-          onClick={() => setMode("rebalance")}
-          className={`rounded-xl border p-4 text-left shadow-sm transition ${
-            mode === "rebalance" ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:bg-slate-50"
-          }`}
-        >
-          <div className="flex items-start gap-3">
-            <Upload className={`mt-0.5 h-5 w-5 ${mode === "rebalance" ? "text-blue-700" : "text-slate-500"}`} />
-            <div>
-              <p className="text-sm font-bold text-slate-950">Already holding stocks</p>
-              <p className="mt-1 text-xs leading-5 text-slate-600">Import or manually enter holdings, then get sell, reduce, hold, add, or buy actions.</p>
+        </div>
+      ) : (
+        <div className="grid gap-3 lg:grid-cols-2">
+          <button
+            onClick={() => setMode("fresh")}
+            className={`rounded-xl border p-4 text-left shadow-sm transition ${
+              mode === "fresh" ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:bg-slate-50"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <Wallet className={`mt-0.5 h-5 w-5 ${mode === "fresh" ? "text-blue-700" : "text-slate-500"}`} />
+              <div>
+                <p className="text-sm font-bold text-slate-950">Fresh money</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">Enter new cash and review what the model suggests buying.</p>
+              </div>
             </div>
-          </div>
-        </button>
-      </div>
+          </button>
+          <button
+            onClick={() => setMode("rebalance")}
+            className={`rounded-xl border p-4 text-left shadow-sm transition ${
+              mode === "rebalance" ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:bg-slate-50"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <Upload className={`mt-0.5 h-5 w-5 ${mode === "rebalance" ? "text-blue-700" : "text-slate-500"}`} />
+              <div>
+                <p className="text-sm font-bold text-slate-950">Existing holdings</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">Import or manually enter holdings, then review sell, reduce, hold, add, or buy actions.</p>
+              </div>
+            </div>
+          </button>
+        </div>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[430px_1fr]">
         {/* ── INPUT PANEL ─────────────────────────────────────────────────── */}
