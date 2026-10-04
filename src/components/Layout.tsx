@@ -70,7 +70,7 @@ export function Layout({ currentPage, onNavigate, isAdmin, children }: Props) {
 
       {mobileOpen && <div className="fixed inset-0 z-50 bg-slate-950/40 lg:hidden" onClick={() => setMobileOpen(false)}><aside className="flex h-full w-60 flex-col bg-slate-900 text-slate-300" onClick={(event) => event.stopPropagation()}><div className="flex h-[82px] items-center gap-3 border-b border-slate-800 px-6"><span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-600 text-white"><Database size={19} /></span><span><span className="block text-sm font-semibold text-white">Factor Intel</span><span className="block text-[11px] text-slate-400">Trading Assistant</span></span></div><nav className="flex-1 space-y-1 px-3 py-5" aria-label="Mobile navigation">{items.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => go(id)} aria-current={currentPage === id ? "page" : undefined} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm ${currentPage === id ? "bg-blue-600 font-semibold text-white" : "text-slate-300"}`}><Icon size={16} />{label}</button>)}</nav><div className="border-t border-slate-800 px-5 py-4 text-[10px] leading-5 text-slate-500"><p>Mode: Monthly + EOD overlay</p><p>Data: Indian SQLite/CSV</p>{user && <button onClick={() => void signOut()} className="mt-2 flex items-center gap-1.5 text-slate-400"><LogOut size={12} /> Sign out</button>}</div></aside></div>}
 
-      <div className="min-h-screen lg:pl-60">
+      <div className="min-h-screen min-w-0 overflow-x-hidden lg:pl-60">
         <header className="sticky top-0 z-20 flex h-[62px] items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-7">
           <div className="flex items-center gap-3">
             <button onClick={() => setMobileOpen(true)} aria-label="Open navigation" className="rounded p-1 text-slate-500 hover:bg-slate-100 lg:hidden"><Activity size={19} /></button>
@@ -79,7 +79,7 @@ export function Layout({ currentPage, onNavigate, isAdmin, children }: Props) {
           </div>
           <div className="flex items-center gap-2 text-right text-[11px] text-slate-500"><span className="hidden sm:inline">Monthly Positional Model</span><span className={`ml-2 h-2 w-2 rounded-full ${dataCurrent ? "bg-emerald-500" : "bg-amber-500"}`} /><span>{freshnessText}</span></div>
         </header>
-        <main className="min-h-[calc(100vh-112px)] px-4 py-6 sm:px-7 sm:py-8">{children}</main>
+        <main className="min-h-[calc(100vh-112px)] min-w-0 overflow-x-hidden px-4 py-6 sm:px-7 sm:py-8">{children}</main>
         <footer className="border-t border-slate-200 bg-white px-4 py-4 text-center text-[10px] text-slate-400">Indian Regime/Factor/Portfolio Intelligence Dashboard - Monthly model + daily execution overlay</footer>
       </div>
     </div>

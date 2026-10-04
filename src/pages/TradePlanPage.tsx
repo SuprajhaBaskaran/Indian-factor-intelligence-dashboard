@@ -337,7 +337,7 @@ export function TradePlanPage() {
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[430px_1fr]">
+      <div className="grid min-w-0 gap-6 2xl:grid-cols-[430px_minmax(0,1fr)]">
         {/* ── INPUT PANEL ─────────────────────────────────────────────────── */}
         <Card
           title={mode === "fresh" ? "Start with your amount" : "Your Holdings"}
@@ -572,10 +572,10 @@ export function TradePlanPage() {
         </Card>
 
         {/* ── RESULTS PANEL ───────────────────────────────────────────────── */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {mode === "fresh" ? (
             <>
-              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <p className="text-xs text-slate-500">Decision</p>
                   <p className="mt-1 text-lg font-bold text-slate-900">{cashPlan.action}</p>
@@ -616,7 +616,7 @@ export function TradePlanPage() {
                     </Badge>
                   </div>
                   <p className="mt-4 text-sm leading-6 text-slate-700">{cashPlan.message}</p>
-                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  <div className="mt-4 grid min-w-0 gap-3 lg:grid-cols-3">
                     <div className="rounded-lg bg-white/75 p-3">
                       <p className="text-xs font-semibold text-slate-500">Model month</p>
                       <p className="mt-1 text-sm font-bold text-slate-950">{snapshot.latestMonth}</p>
@@ -627,7 +627,7 @@ export function TradePlanPage() {
                     </div>
                     <div className="rounded-lg bg-white/75 p-3">
                       <p className="text-xs font-semibold text-slate-500">Why</p>
-                      <p className="mt-1 text-sm font-bold text-slate-950">{dailyRisk.triggers[0]}</p>
+                      <p className="mt-1 break-words text-sm font-bold text-slate-950">{dailyRisk.triggers[0]}</p>
                     </div>
                   </div>
                   <div className="mt-4 flex items-start gap-2 text-xs font-medium leading-5 text-slate-600">
@@ -668,7 +668,7 @@ export function TradePlanPage() {
             </>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <p className="text-xs text-slate-500">Portfolio value</p>
                   <p className="mt-1 text-lg font-bold text-slate-900">{formatCurrency(preview.portfolioValue)}</p>
