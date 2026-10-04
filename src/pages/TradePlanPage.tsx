@@ -19,6 +19,7 @@ import {
 } from "@/lib/product";
 import { useUserData, type UserHolding as PersistedHolding } from "@/lib/userData";
 import { getDecisionSnapshot } from "@/lib/product";
+import { getPortfolioTargets, getStocks } from "@/lib/data";
 
 type TradeMode = "fresh" | "rebalance";
 
@@ -87,6 +88,8 @@ export function TradePlanPage() {
   const [minimumTradeText, setMinimumTradeText] = useState("1000");
   const [filter, setFilter] = useState("ALL");
   const [savedInput, setSavedInput] = useState<{ holdings: string; cash: string } | null>(null);
+  const [recommendationGenerated, setRecommendationGenerated] = useState(false);
+  const [customStockQuery, setCustomStockQuery] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -107,6 +110,10 @@ export function TradePlanPage() {
     return () => { cancelled = true; };
   }, [userData, experience?.hasInvestments]);
 
+  useEffect(() => {
+    setRecommendationGenerated(false);
+  }, [cashText, minimumTradeText, mode]);
+
   const holdings = useMemo(() => parseHoldingsText(holdingsText), [holdingsText]);
   const hasHoldings = holdings.length > 0;
   const manualRows = createBlankHoldingRows(holdings);
@@ -116,12 +123,49 @@ export function TradePlanPage() {
 
   const preview = buildTradePlan(holdings, cash, minimumTradeValue);
   const cashPlan = buildCashDeploymentPlan(cash, [], minimumTradeValue);
+  const targets = getPortfolioTargets();
+  const stocks = getStocks();
   const snapshot = getDecisionSnapshot();
   const dailyRisk = assessDailyRisk();
   const freshTone = getFreshPlanTone(cashPlan.action);
   const recommendationAvailable = snapshot.latestMonth !== "—" && snapshot.decision !== null;
   const explanation = buildDeterministicExplanation(dailyRisk, preview.rows);
   const executableRows = preview.rows.filter((row) => row.finalTradeQuantity !== 0);
+  const normalizedCustomQuery = customStockQuery.trim().toUpperCase();
+  const customSuggestions = useMemo(() => {
+    if (normalizedCustomQuery.length < 1) return [];
+    return stocks
+      .filter((stock) =>
+        stock.symbol.includes(normalizedCustomQuery) ||
+        stock.name.toUpperCase().includes(normalizedCustomQuery)
+      )
+      .slice(0, 6);
+  }, [normalizedCustomQuery, stocks]);
+  const selectedCustomStock = stocks.find((stock) => stock.symbol === normalizedCustomQuery);
+  const customTarget = targets.find((target) => target.symbol === normalizedCustomQuery);
+  const customPlan = normalizedCustomQuery ? buildCashDeploymentPlan(cash, [normalizedCustomQuery], minimumTradeValue) : null;
+  const customPrice = normalizedCustomQuery ? getLatestPrice(normalizedCustomQuery) : 0;
+  const customVerdict = normalizedCustomQuery.length === 0
+    ? null
+    : customTarget && customPlan && customPlan.rows.length > 0
+      ? {
+          tone: "green" as const,
+          title: "Model allows this stock",
+          detail: `${normalizedCustomQuery} is in the current basket. Suggested quantity: ${customPlan.rows[0].quantity} share${customPlan.rows[0].quantity === 1 ? "" : "s"} inside ${formatPriceRange(customPrice)}.`,
+        }
+      : customTarget
+        ? {
+            tone: "amber" as const,
+            title: "Good stock, but amount is too small for a practical buy",
+            detail: customPlan?.message || `The stock is in the basket, but the current amount does not create a clean trade after sizing rules.`,
+          }
+        : {
+            tone: "slate" as const,
+            title: "Not in this month’s model basket",
+            detail: selectedCustomStock
+              ? `${normalizedCustomQuery} is known, but the model is not selecting it for this month. Keep it on watch instead of forcing a buy from this plan.`
+              : `No exact symbol match yet. Choose one of the suggestions before using this as a personal stock check.`,
+          };
 
   const holdingCards = holdings.map((holding) => {
     const latestPrice = getLatestPrice(holding.symbol);
@@ -196,6 +240,11 @@ export function TradePlanPage() {
     } catch (error) {
       setSaveMessage(error instanceof Error ? error.message : "Could not save your plan. Please try again.");
     }
+  };
+
+  const handleGenerateRecommendation = () => {
+    setSaveMessage("");
+    setRecommendationGenerated(true);
   };
 
   const planEdited = savedInput !== null && (savedInput.holdings !== holdingsText || savedInput.cash !== cashText);
@@ -340,8 +389,8 @@ export function TradePlanPage() {
       <div className="grid min-w-0 gap-6 2xl:grid-cols-[430px_minmax(0,1fr)]">
         {/* ── INPUT PANEL ─────────────────────────────────────────────────── */}
         <Card
-          title={mode === "fresh" ? "Start with your amount" : "Your Holdings"}
-          subtitle={mode === "fresh" ? "The assistant turns this into a review-only buy plan." : "Stocks you currently own"}
+          title={mode === "fresh" ? "Tell the assistant your budget" : "Your Holdings"}
+          subtitle={mode === "fresh" ? "Nothing is recommended until you generate a plan." : "Stocks you currently own"}
         >
           <div className={mode === "fresh" ? "space-y-4" : "grid grid-cols-2 gap-3"}>
             <label className="text-xs font-medium text-slate-600">
@@ -379,30 +428,39 @@ export function TradePlanPage() {
 
           {mode === "fresh" && (
             <div className="mt-5 space-y-4">
-              <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
-                <p className="font-semibold text-blue-950">What happens next</p>
-                <p className="mt-1">
+              <details className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
+                <summary className="cursor-pointer font-semibold text-blue-950">How the recommendation is created</summary>
+                <p className="mt-2">
                   The assistant reads the monthly factor model, market regime, news stress, and daily risk overlay. It then decides whether to deploy, stagger, or wait.
                 </p>
-              </div>
-              <div className="grid gap-3">
-                {[
-                  "You do not choose stocks manually here.",
-                  "The plan gives share quantity and a buy zone, not one magic price.",
-                  "No order is placed; this is a calm review checklist.",
-                ].map((item) => (
-                  <div key={item} className="flex gap-3 rounded-lg border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-600">
-                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                    <span>{item}</span>
-                  </div>
-                ))}
-              </div>
+                <div className="mt-3 grid gap-2">
+                  {[
+                    "The model chooses stocks; you review before acting.",
+                    "Every buy has quantity and a buy zone, not one fixed price.",
+                    "No order is placed automatically.",
+                  ].map((item) => (
+                    <div key={item} className="flex gap-2 rounded-lg border border-blue-100 bg-white/80 p-2 text-xs leading-5 text-blue-900">
+                      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
               <button
-                onClick={handleSave}
-                className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+                onClick={handleGenerateRecommendation}
+                disabled={cash <= 0}
+                className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
-                Save this draft plan
+                Generate my recommendation
               </button>
+              {recommendationGenerated && (
+                <button
+                  onClick={handleSave}
+                  className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Save this draft plan
+                </button>
+              )}
             </div>
           )}
 
@@ -575,28 +633,37 @@ export function TradePlanPage() {
         <div className="min-w-0 space-y-6">
           {mode === "fresh" ? (
             <>
-              <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <p className="text-xs text-slate-500">Decision</p>
-                  <p className="mt-1 text-lg font-bold text-slate-900">{cashPlan.action}</p>
+              {!recommendationGenerated ? (
+                <div className="rounded-xl border border-dashed border-blue-200 bg-white p-6 text-center">
+                  <p className="text-sm font-semibold text-slate-900">Enter an amount, then generate your plan.</p>
+                  <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+                    Your onboarding amount can pre-fill the box, but the recommendation will appear only after you ask for it here.
+                  </p>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <p className="text-xs text-slate-500">Amount entered</p>
-                  <p className="mt-1 text-lg font-bold text-slate-900">{formatCurrency(cash)}</p>
+              ) : (
+                <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-xs text-slate-500">Decision</p>
+                    <p className="mt-1 text-lg font-bold text-slate-900">{cashPlan.action}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-xs text-slate-500">Amount entered</p>
+                    <p className="mt-1 text-lg font-bold text-slate-900">{formatCurrency(cash)}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-xs text-slate-500">To invest</p>
+                    <p className="mt-1 text-lg font-bold text-slate-900">{formatCurrency(cashPlan.totalUsed)}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-xs text-slate-500">Cash remaining</p>
+                    <p className="mt-1 text-lg font-bold text-slate-900">{formatCurrency(cashPlan.cashLeft)}</p>
+                  </div>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <p className="text-xs text-slate-500">To invest</p>
-                  <p className="mt-1 text-lg font-bold text-slate-900">{formatCurrency(cashPlan.totalUsed)}</p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <p className="text-xs text-slate-500">Cash remaining</p>
-                  <p className="mt-1 text-lg font-bold text-slate-900">{formatCurrency(cashPlan.cashLeft)}</p>
-                </div>
-              </div>
+              )}
 
-              <Card
-                title="AI-assisted buy plan"
-                subtitle="Built from the monthly model, daily risk overlay, and current market context."
+              {recommendationGenerated && <Card
+                title="Your generated buy plan"
+                subtitle="Personalized from your amount, the current model basket, and the daily risk overlay."
               >
                 <div className={`rounded-xl border p-5 ${
                   freshTone.color === "green"
@@ -664,6 +731,57 @@ export function TradePlanPage() {
                     </div>
                   </div>
                 )}
+              </Card>}
+
+              <Card
+                title="Check my own stock idea"
+                subtitle="Search a stock outside the generated plan and see whether this month’s model supports it."
+              >
+                <div className="space-y-4">
+                  <label className="block text-xs font-medium text-slate-600">
+                    Stock symbol or company name
+                    <input
+                      value={customStockQuery}
+                      onChange={(event) => setCustomStockQuery(event.target.value.toUpperCase())}
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-sm font-semibold uppercase outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      placeholder="Type RELIANCE, TCS, JSW..."
+                    />
+                  </label>
+                  {customSuggestions.length > 0 && normalizedCustomQuery !== customSuggestions[0]?.symbol && (
+                    <div className="flex flex-wrap gap-2">
+                      {customSuggestions.map((stock) => (
+                        <button
+                          key={stock.symbol}
+                          type="button"
+                          onClick={() => setCustomStockQuery(stock.symbol)}
+                          className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700"
+                        >
+                          {stock.symbol} <span className="font-normal text-slate-500">{stock.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {customVerdict && (
+                    <div className={`rounded-xl border p-4 ${
+                      customVerdict.tone === "green"
+                        ? "border-emerald-200 bg-emerald-50"
+                        : customVerdict.tone === "amber"
+                        ? "border-amber-200 bg-amber-50"
+                        : "border-slate-200 bg-slate-50"
+                    }`}>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-slate-950">{customVerdict.title}</p>
+                          <p className="mt-1 text-sm leading-6 text-slate-700">{customVerdict.detail}</p>
+                          {selectedCustomStock && <p className="mt-2 text-xs text-slate-500">{selectedCustomStock.name} · {selectedCustomStock.sector || "Sector unavailable"}</p>}
+                        </div>
+                        <Badge color={customVerdict.tone === "green" ? "green" : customVerdict.tone === "amber" ? "amber" : "slate"}>
+                          {customVerdict.tone === "green" ? "Can consider" : customVerdict.tone === "amber" ? "Watch sizing" : "Watchlist"}
+                        </Badge>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </Card>
             </>
           ) : (
