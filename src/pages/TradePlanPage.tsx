@@ -46,6 +46,33 @@ function createBlankHoldingRows(rows: UserHolding[]): UserHolding[] {
   return rows.length ? rows : [{ symbol: "", quantity: 0, avgPrice: undefined }];
 }
 
+function formatPriceRange(price: number): string {
+  if (!Number.isFinite(price) || price <= 0) return "—";
+  return `${formatCurrency(price * 0.985)} - ${formatCurrency(price * 1.015)}`;
+}
+
+function getFreshPlanTone(action: string): { title: string; detail: string; color: "green" | "amber" | "slate" } {
+  if (action === "Deploy") {
+    return {
+      title: "Ready to deploy carefully",
+      detail: "The monthly model and daily risk check allow fresh buys. Use the buy zone, not a fixed price.",
+      color: "green",
+    };
+  }
+  if (action === "Stagger") {
+    return {
+      title: "Buy in smaller steps",
+      detail: "Risk is a little elevated, so the assistant suggests deploying only part of the amount now.",
+      color: "amber",
+    };
+  }
+  return {
+    title: "Wait for a cleaner setup",
+    detail: "The model or risk overlay is not asking you to add fresh exposure right now.",
+    color: "slate",
+  };
+}
+
 export function TradePlanPage() {
   const userData = useUserData();
   const { user } = useAuth();
@@ -58,7 +85,6 @@ export function TradePlanPage() {
   const [loadError, setLoadError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
   const [minimumTradeText, setMinimumTradeText] = useState("1000");
-  const [basketText, setBasketText] = useState("");
   const [filter, setFilter] = useState("ALL");
   const [savedInput, setSavedInput] = useState<{ holdings: string; cash: string } | null>(null);
 
@@ -87,16 +113,14 @@ export function TradePlanPage() {
   const cash = Number(cashText) || 0;
   const minimumTradeValue = Number(minimumTradeText) || 0;
   const holdingIssues = getHoldingInputIssues(holdingsText);
-  const basketSymbols = useMemo(
-    () => basketText.split(/[\s,]+/).map((symbol) => symbol.trim()).filter(Boolean),
-    [basketText]
-  );
 
   const preview = buildTradePlan(holdings, cash, minimumTradeValue);
-  const cashPlan = buildCashDeploymentPlan(cash, basketSymbols, minimumTradeValue);
+  const cashPlan = buildCashDeploymentPlan(cash, [], minimumTradeValue);
   const snapshot = getDecisionSnapshot();
+  const dailyRisk = assessDailyRisk();
+  const freshTone = getFreshPlanTone(cashPlan.action);
   const recommendationAvailable = snapshot.latestMonth !== "—" && snapshot.decision !== null;
-  const explanation = buildDeterministicExplanation(assessDailyRisk(), preview.rows);
+  const explanation = buildDeterministicExplanation(dailyRisk, preview.rows);
   const executableRows = preview.rows.filter((row) => row.finalTradeQuantity !== 0);
 
   const holdingCards = holdings.map((holding) => {
@@ -112,8 +136,8 @@ export function TradePlanPage() {
   const cashPlanRows = cashPlan.rows.map((row) => ({
     stock: <span className="font-semibold text-slate-900">{row.symbol}</span>,
     action: <Badge color="green">Buy {row.quantity}</Badge>,
-    price: formatCurrency(row.latestPrice),
-    amount: formatCurrency(row.buyValue),
+    buyZone: formatPriceRange(row.latestPrice),
+    amount: formatCurrency(row.buyValue * 1.015),
     reason: row.reason,
   }));
 
@@ -316,51 +340,68 @@ export function TradePlanPage() {
       <div className="grid gap-6 xl:grid-cols-[430px_1fr]">
         {/* ── INPUT PANEL ─────────────────────────────────────────────────── */}
         <Card
-          title={mode === "fresh" ? "Investment Amount" : "Your Holdings"}
-          subtitle={mode === "fresh" ? "How much do you want to invest?" : "Stocks you currently own"}
+          title={mode === "fresh" ? "Start with your amount" : "Your Holdings"}
+          subtitle={mode === "fresh" ? "The assistant turns this into a review-only buy plan." : "Stocks you currently own"}
         >
-          <div className="grid grid-cols-2 gap-3">
+          <div className={mode === "fresh" ? "space-y-4" : "grid grid-cols-2 gap-3"}>
             <label className="text-xs font-medium text-slate-600">
               {mode === "fresh" ? "Amount to invest (₹)" : "Free cash available (₹)"}
               <input
                 value={cashText}
                 onChange={(event) => setCashText(event.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg font-bold text-slate-950 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 placeholder="50000"
               />
             </label>
-            <label className="text-xs font-medium text-slate-600">
-              <TermTooltip term="minimum trade size">Minimum trade size (₹)</TermTooltip>
-              <input
-                value={minimumTradeText}
-                onChange={(event) => setMinimumTradeText(event.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              />
-            </label>
+            {mode === "fresh" ? (
+              <details className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <summary className="cursor-pointer text-xs font-semibold text-slate-600">Advanced sizing setting</summary>
+                <label className="mt-3 block text-xs font-medium text-slate-600">
+                  <TermTooltip term="minimum trade size">Minimum trade size (₹)</TermTooltip>
+                  <input
+                    value={minimumTradeText}
+                    onChange={(event) => setMinimumTradeText(event.target.value)}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  />
+                </label>
+              </details>
+            ) : (
+              <label className="text-xs font-medium text-slate-600">
+                <TermTooltip term="minimum trade size">Minimum trade size (₹)</TermTooltip>
+                <input
+                  value={minimumTradeText}
+                  onChange={(event) => setMinimumTradeText(event.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+              </label>
+            )}
           </div>
 
           {mode === "fresh" && (
             <div className="mt-5 space-y-4">
-              <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm leading-6 text-blue-900">
-                Start here for a new user: enter investment capital and the AI will decide whether to buy now, <TermTooltip term="stagger buys">stagger</TermTooltip>, or wait.
+              <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
+                <p className="font-semibold text-blue-950">What happens next</p>
+                <p className="mt-1">
+                  The assistant reads the monthly factor model, market regime, news stress, and daily risk overlay. It then decides whether to deploy, stagger, or wait.
+                </p>
               </div>
-              <label className="block text-xs font-semibold text-slate-700">
-                Optional: Restrict to specific stocks
-                <textarea
-                  value={basketText}
-                  onChange={(event) => setBasketText(event.target.value)}
-                  className="mt-1 h-20 w-full rounded-lg border border-slate-300 p-3 font-mono text-xs outline-none focus:border-blue-500"
-                  placeholder={"Leave blank for model recommendations\nor type: PFC IRFC IDEA"}
-                />
-                <span className="mt-2 block text-xs leading-5 text-slate-500">
-                  Blank = use model recommendations. Type stock symbols to restrict buys.
-                </span>
-              </label>
+              <div className="grid gap-3">
+                {[
+                  "You do not choose stocks manually here.",
+                  "The plan gives share quantity and a buy zone, not one magic price.",
+                  "No order is placed; this is a calm review checklist.",
+                ].map((item) => (
+                  <div key={item} className="flex gap-3 rounded-lg border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-600">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
               <button
                 onClick={handleSave}
                 className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"
               >
-                Save My Plan
+                Save this draft plan
               </button>
             </div>
           )}
@@ -536,7 +577,7 @@ export function TradePlanPage() {
             <>
               <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                 <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <p className="text-xs text-slate-500">Recommendation</p>
+                  <p className="text-xs text-slate-500">Decision</p>
                   <p className="mt-1 text-lg font-bold text-slate-900">{cashPlan.action}</p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -554,38 +595,73 @@ export function TradePlanPage() {
               </div>
 
               <Card
-                title="Recommendation"
-                subtitle="Exact shares to buy, or a clear wait/stagger instruction when risk is high."
+                title="AI-assisted buy plan"
+                subtitle="Built from the monthly model, daily risk overlay, and current market context."
               >
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+                <div className={`rounded-xl border p-5 ${
+                  freshTone.color === "green"
+                    ? "border-emerald-200 bg-emerald-50"
+                    : freshTone.color === "amber"
+                    ? "border-amber-200 bg-amber-50"
+                    : "border-slate-200 bg-slate-50"
+                }`}>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Action</p>
-                      <p className="mt-1 text-2xl font-bold text-slate-950">{cashPlan.action}</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Assistant view</p>
+                      <p className="mt-1 text-2xl font-bold text-slate-950">{freshTone.title}</p>
+                      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">{freshTone.detail}</p>
                     </div>
                     <Badge color={cashPlan.rows.length > 0 ? "green" : "amber"}>
                       {cashPlan.rows.length > 0 ? `${cashPlan.rows.length} buys ready` : "No buy order"}
                     </Badge>
                   </div>
                   <p className="mt-4 text-sm leading-6 text-slate-700">{cashPlan.message}</p>
-                  <div className="mt-4 flex items-center gap-2 text-xs font-medium text-slate-500">
-                    <ShieldCheck className="h-4 w-4" />
-                    This is a draft plan for review; no orders are placed.
+                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    <div className="rounded-lg bg-white/75 p-3">
+                      <p className="text-xs font-semibold text-slate-500">Model month</p>
+                      <p className="mt-1 text-sm font-bold text-slate-950">{snapshot.latestMonth}</p>
+                    </div>
+                    <div className="rounded-lg bg-white/75 p-3">
+                      <p className="text-xs font-semibold text-slate-500">Risk mode</p>
+                      <p className="mt-1 text-sm font-bold text-slate-950">{dailyRisk.executionMode}</p>
+                    </div>
+                    <div className="rounded-lg bg-white/75 p-3">
+                      <p className="text-xs font-semibold text-slate-500">Why</p>
+                      <p className="mt-1 text-sm font-bold text-slate-950">{dailyRisk.triggers[0]}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-start gap-2 text-xs font-medium leading-5 text-slate-600">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+                    Prices move during the day. Use the buy zone as a limit area. If the stock trades above the zone, wait or re-check; do not chase just because the table had a lower reference price.
                   </div>
                 </div>
                 {cashPlan.rows.length > 0 && (
-                  <div className="mt-4">
+                  <div className="mt-4 space-y-4">
                     <Table
                       maxHeight="360px"
                       columns={[
                         { key: "stock", label: "Stock" },
-                        { key: "action", label: "Action" },
-                        { key: "price", label: "Price", align: "right" },
-                        { key: "amount", label: "Amount", align: "right" },
+                        { key: "action", label: "Qty" },
+                        { key: "buyZone", label: "Buy zone", align: "right" },
+                        { key: "amount", label: "Max spend", align: "right" },
                         { key: "reason", label: "Why" },
                       ]}
                       data={cashPlanRows}
                     />
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <div className="rounded-lg border border-slate-200 bg-white p-3">
+                        <p className="text-xs font-semibold text-slate-500">If price is inside zone</p>
+                        <p className="mt-1 text-sm leading-5 text-slate-700">Buy the shown quantity using a limit order near the zone.</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-white p-3">
+                        <p className="text-xs font-semibold text-slate-500">If price is above zone</p>
+                        <p className="mt-1 text-sm leading-5 text-slate-700">Wait. A missed trade is better than chasing a moved price.</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-white p-3">
+                        <p className="text-xs font-semibold text-slate-500">If market looks volatile</p>
+                        <p className="mt-1 text-sm leading-5 text-slate-700">Use stagger mode: buy part now and keep cash for the next check.</p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </Card>
