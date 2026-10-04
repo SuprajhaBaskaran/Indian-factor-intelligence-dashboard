@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ArrowRight, PencilLine, ShieldCheck, Upload, Wallet } from "lucide-react";
 import { Badge, Card, SignalBadge, Table } from "@/components/UI";
 import {
   assessDailyRisk,
@@ -17,6 +18,7 @@ import {
   saveUserHoldings,
   tradePlanToCsv,
   type UserHolding,
+  getDecisionSnapshot,
 } from "@/lib/product";
 
 type TradeMode = "fresh" | "rebalance";
@@ -45,35 +47,12 @@ function createBlankHoldingRows(rows: UserHolding[]): UserHolding[] {
   return rows.length ? rows : [{ symbol: "", quantity: 0, avgPrice: undefined }];
 }
 
-function ModeButton({
-  active,
-  title,
-  description,
-  onClick,
-}: {
-  active: boolean;
-  title: string;
-  description: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-xl border p-4 text-left shadow-sm transition ${
-        active ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:bg-slate-50"
-      }`}
-    >
-      <p className="text-sm font-bold text-slate-950">{title}</p>
-      <p className="mt-1 text-xs leading-5 text-slate-600">{description}</p>
-    </button>
-  );
-}
-
 export function TradePlanPage() {
   const [mode, setMode] = useState<TradeMode>("fresh");
   const [holdingsText, setHoldingsText] = useState(() => holdingsToText(loadUserHoldings()));
   const [bulkEntryText, setBulkEntryText] = useState("");
   const [cashText, setCashText] = useState(() => String(loadUserCash()));
+  const [saveMessage, setSaveMessage] = useState("");
   const [minimumTradeText, setMinimumTradeText] = useState("1000");
   const [basketText, setBasketText] = useState("");
   const [filter, setFilter] = useState("ALL");
@@ -91,6 +70,7 @@ export function TradePlanPage() {
 
   const preview = buildTradePlan(holdings, cash, minimumTradeValue);
   const cashPlan = buildCashDeploymentPlan(cash, basketSymbols, minimumTradeValue);
+  const snapshot = getDecisionSnapshot();
   const explanation = buildDeterministicExplanation(assessDailyRisk(), preview.rows);
   const executableRows = preview.rows.filter((row) => row.finalTradeQuantity !== 0);
 
@@ -106,9 +86,9 @@ export function TradePlanPage() {
 
   const cashPlanRows = cashPlan.rows.map((row) => ({
     stock: <span className="font-semibold text-slate-900">{row.symbol}</span>,
-    buy: `Buy ${row.quantity}`,
+    action: <Badge color="green">Buy {row.quantity}</Badge>,
     price: formatCurrency(row.latestPrice),
-    value: formatCurrency(row.buyValue),
+    amount: formatCurrency(row.buyValue),
     reason: row.reason,
   }));
 
@@ -120,30 +100,22 @@ export function TradePlanPage() {
     })
     .map((row) => ({
       stock: <span className="font-semibold text-slate-900">{row.symbol}</span>,
-      youHave: `${row.currentQuantity} shares`,
-      modelWants: `${row.targetQuantity} shares`,
-      finalToday:
-        row.finalTradeQuantity > 0
-          ? `Buy ${row.finalTradeQuantity}`
-          : row.finalTradeQuantity < 0
-          ? `Sell ${Math.abs(row.finalTradeQuantity)}`
-          : row.action === "PAUSED"
-          ? "Buy 0 today"
-          : "No trade",
+      current: `${row.currentQuantity} shares`,
+      target: `${row.targetQuantity} shares`,
       action:
         row.action === "PAUSED" || row.action === "IGNORED" ? (
           <Badge color={row.action === "PAUSED" ? "amber" : "slate"}>{row.action}</Badge>
         ) : (
           <SignalBadge signal={row.action} />
         ),
-      targetValue: formatCurrency(row.targetValue),
-      todayValue: formatCurrency(row.tradeValue),
+      amount: formatCurrency(row.tradeValue),
       reason: row.reason,
     })) : [];
 
   const handleSave = () => {
     saveUserHoldings(holdings);
     saveUserCash(cash);
+    setSaveMessage(mode === "fresh" ? "Your investment amount was saved in this browser." : "Your holdings and cash were saved in this browser.");
   };
 
   const updateManualRow = (index: number, patch: Partial<UserHolding>) => {
@@ -173,6 +145,7 @@ export function TradePlanPage() {
     setHoldingsText("");
     setBulkEntryText("");
     setCashText("0");
+    setSaveMessage("Saved portfolio cleared.");
   };
 
   const handleExport = () => {
@@ -198,36 +171,88 @@ export function TradePlanPage() {
     setMode("rebalance");
   };
 
+  const modeSteps = mode === "fresh"
+    ? [
+        { label: "Enter capital", value: cash > 0 ? formatCurrency(cash) : "Waiting for amount" },
+        { label: "AI reads monthly basket", value: snapshot.latestMonth },
+        { label: "Output", value: `${cashPlan.rows.length} buy idea${cashPlan.rows.length === 1 ? "" : "s"}` },
+      ]
+    : [
+        { label: "Import or enter holdings", value: hasHoldings ? `${holdings.length} stock${holdings.length === 1 ? "" : "s"}` : "Waiting for holdings" },
+        { label: "AI compares with model", value: snapshot.latestMonth },
+        { label: "Output", value: `${executableRows.length} trade${executableRows.length === 1 ? "" : "s"}` },
+      ];
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-slate-900">Trade Plan</h2>
-        <p className="mt-1 text-sm text-slate-500">Turn cash or holdings into exact trade quantities.</p>
+        <h2 className="text-xl font-bold text-slate-900">My Plan</h2>
+        <p className="mt-1 text-sm text-slate-500">Turn fresh cash or existing holdings into a monthly positional trade plan.</p>
+      </div>
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge color="blue">Model recommendation</Badge>
+          <span>Model month {snapshot.latestMonth}</span>
+          <span className="text-blue-700">Save My Plan to store the current inputs in this browser.</span>
+        </div>
+      </div>
+      {saveMessage && <div role="status" className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">{saveMessage}</div>}
+
+      <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:grid-cols-3">
+        {modeSteps.map((step, index) => (
+          <div key={step.label} className="flex items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-700">
+              {index + 1}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{step.label}</p>
+              <p className="truncate text-sm font-semibold text-slate-950">{step.value}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
+      {/* ── MODE SELECTION ───────────────────────────────────────────────── */}
       <div className="grid gap-3 lg:grid-cols-2">
-        <ModeButton
-          active={mode === "fresh"}
-          title="I want to invest fresh money"
-          description="Enter cash. Get buy, stagger, or wait."
+        <button
           onClick={() => setMode("fresh")}
-        />
-        <ModeButton
-          active={mode === "rebalance"}
-          title="I already hold stocks"
-          description="Import holdings. Get sell, reduce, hold, or buy."
+          className={`rounded-xl border p-4 text-left shadow-sm transition ${
+            mode === "fresh" ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:bg-slate-50"
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <Wallet className={`mt-0.5 h-5 w-5 ${mode === "fresh" ? "text-blue-700" : "text-slate-500"}`} />
+            <div>
+              <p className="text-sm font-bold text-slate-950">New investor / fresh money</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">Ask how much money they will invest, then suggest what to buy from the AI model.</p>
+            </div>
+          </div>
+        </button>
+        <button
           onClick={() => setMode("rebalance")}
-        />
+          className={`rounded-xl border p-4 text-left shadow-sm transition ${
+            mode === "rebalance" ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:bg-slate-50"
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <Upload className={`mt-0.5 h-5 w-5 ${mode === "rebalance" ? "text-blue-700" : "text-slate-500"}`} />
+            <div>
+              <p className="text-sm font-bold text-slate-950">Already holding stocks</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">Import or manually enter holdings, then get sell, reduce, hold, add, or buy actions.</p>
+            </div>
+          </div>
+        </button>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[430px_1fr]">
+        {/* ── INPUT PANEL ─────────────────────────────────────────────────── */}
         <Card
-          title={mode === "fresh" ? "Fresh Investment Setup" : "Your Holdings"}
-          subtitle={mode === "fresh" ? "New cash" : "Owned stocks"}
+          title={mode === "fresh" ? "Investment Amount" : "Your Holdings"}
+          subtitle={mode === "fresh" ? "How much do you want to invest?" : "Stocks you currently own"}
         >
           <div className="grid grid-cols-2 gap-3">
             <label className="text-xs font-medium text-slate-600">
-              {mode === "fresh" ? "Amount to invest" : "Free cash available"}
+              {mode === "fresh" ? "Amount to invest (₹)" : "Free cash available (₹)"}
               <input
                 value={cashText}
                 onChange={(event) => setCashText(event.target.value)}
@@ -236,7 +261,7 @@ export function TradePlanPage() {
               />
             </label>
             <label className="text-xs font-medium text-slate-600">
-              Min trade value
+              Minimum trade size (₹)
               <input
                 value={minimumTradeText}
                 onChange={(event) => setMinimumTradeText(event.target.value)}
@@ -247,50 +272,66 @@ export function TradePlanPage() {
 
           {mode === "fresh" && (
             <div className="mt-5 space-y-4">
-              <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">
-                Enter cash. The model decides buy, stagger, or wait.
+              <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm leading-6 text-blue-900">
+                Start here for a new user: enter investment capital and the AI will decide whether to buy now, stagger, or wait.
               </div>
               <label className="block text-xs font-semibold text-slate-700">
-                Optional watchlist
+                Optional: Restrict to specific stocks
                 <textarea
                   value={basketText}
                   onChange={(event) => setBasketText(event.target.value)}
-                  className="mt-1 h-24 w-full rounded-lg border border-slate-300 p-3 font-mono text-xs outline-none focus:border-blue-500"
-                  placeholder={"Leave blank for model basket\nor type: PFC IRFC IDEA"}
+                  className="mt-1 h-20 w-full rounded-lg border border-slate-300 p-3 font-mono text-xs outline-none focus:border-blue-500"
+                  placeholder={"Leave blank for model recommendations\nor type: PFC IRFC IDEA"}
                 />
                 <span className="mt-2 block text-xs leading-5 text-slate-500">
-                  Blank = model basket. Type symbols to restrict buys.
+                  Blank = use model recommendations. Type stock symbols to restrict buys.
                 </span>
               </label>
               <button
                 onClick={handleSave}
                 className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"
               >
-                Save Amount
+                Save My Plan
               </button>
             </div>
           )}
 
           {mode === "rebalance" && (
             <div className="mt-5 space-y-5">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                    <Upload className="h-4 w-4 text-slate-500" />
+                    Import
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">Best when the user has a broker holdings CSV.</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                    <PencilLine className="h-4 w-4 text-slate-500" />
+                    Manual entry
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">Best when the user wants to type a few holdings quickly.</p>
+                </div>
+              </div>
               <div>
                 <label className="block rounded-lg border border-dashed border-blue-300 bg-blue-50 p-4 text-center text-sm font-semibold text-blue-700 hover:bg-blue-100">
                   Import broker holdings CSV
                   <input type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => handleImportFile(event.target.files?.[0] || null)} />
                 </label>
-                <p className="mt-2 text-xs text-slate-500">Accepts symbol/instrument, qty, avg price columns.</p>
+                <p className="mt-2 text-xs text-slate-500">Accepts symbol, quantity, average price columns.</p>
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-white">
                 <div className="border-b border-slate-100 px-4 py-3">
-                  <p className="text-sm font-semibold text-slate-900">Paste many holdings</p>
+                  <p className="text-sm font-semibold text-slate-900">Paste holdings</p>
                   <p className="mt-1 text-xs text-slate-500">One row per stock: PFC,10,420</p>
                 </div>
                 <div className="p-4">
                   <textarea
                     value={bulkEntryText}
                     onChange={(event) => setBulkEntryText(event.target.value)}
-                    className="h-28 w-full rounded-lg border border-slate-300 p-3 font-mono text-xs outline-none focus:border-blue-500"
+                    className="h-24 w-full rounded-lg border border-slate-300 p-3 font-mono text-xs outline-none focus:border-blue-500"
                     placeholder={"PFC,10,420\nBAJFINANCE,4,950\nAMBUJACEM,20"}
                   />
                   <button
@@ -309,46 +350,21 @@ export function TradePlanPage() {
                     <p className="text-sm font-semibold text-slate-900">Current portfolio</p>
                     <Badge color="slate">{holdingCards.length} holdings</Badge>
                   </div>
-                  <div className="max-h-[360px] space-y-3 overflow-auto pr-1">
+                  <div className="max-h-[300px] space-y-2 overflow-auto pr-1">
                     {holdingCards.map((holding) => (
-                      <div key={holding.symbol} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <div key={holding.symbol} className="rounded-lg border border-slate-200 bg-white p-3">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="text-base font-bold text-slate-950">{holding.symbol}</p>
-                            <p className="mt-0.5 text-xs text-slate-500">NSE equity holding</p>
+                            <p className="text-sm font-bold text-slate-950">{holding.symbol}</p>
+                            <p className="text-xs text-slate-500">{holding.quantity} shares @ {formatCurrency(holding.avgPrice)}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-lg font-bold text-slate-950">{formatCurrency(holding.currentValue)}</p>
-                            {holding.invested > 0 ? (
+                            <p className="text-sm font-bold text-slate-950">{formatCurrency(holding.currentValue)}</p>
+                            {holding.invested > 0 && (
                               <p className={`text-xs font-semibold ${holding.pnl >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                                {holding.pnl >= 0 ? "+" : ""}
-                                {formatCurrency(holding.pnl)} ({(holding.pnlPct * 100).toFixed(2)}%)
+                                {holding.pnl >= 0 ? "+" : ""}{formatCurrency(holding.pnl)} ({(holding.pnlPct * 100).toFixed(1)}%)
                               </p>
-                            ) : (
-                              <p className="text-xs text-slate-400">Avg price not added</p>
                             )}
-                          </div>
-                        </div>
-                        <div className="mt-4 grid grid-cols-4 gap-3 text-xs">
-                          <div>
-                            <p className="text-slate-500">Qty</p>
-                            <p className="mt-1 text-base font-bold text-slate-900">{holding.quantity}</p>
-                          </div>
-                          <div>
-                            <p className="text-slate-500">LTP</p>
-                            <p className="mt-1 font-bold text-slate-900">{formatCurrency(holding.latestPrice)}</p>
-                          </div>
-                          <div>
-                            <p className="text-slate-500">Avg</p>
-                            <p className="mt-1 font-bold text-slate-900">
-                              {holding.avgPrice > 0 ? formatCurrency(holding.avgPrice) : "Not set"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-slate-500">Invested</p>
-                            <p className="mt-1 font-bold text-slate-900">
-                              {holding.invested > 0 ? formatCurrency(holding.invested) : "Not set"}
-                            </p>
                           </div>
                         </div>
                       </div>
@@ -433,7 +449,7 @@ export function TradePlanPage() {
                 disabled={holdingIssues.length > 0}
                 className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
-                Save Holdings
+                Save My Plan
               </button>
               <button
                 onClick={handleReset}
@@ -445,12 +461,13 @@ export function TradePlanPage() {
           )}
         </Card>
 
+        {/* ── RESULTS PANEL ───────────────────────────────────────────────── */}
         <div className="space-y-6">
           {mode === "fresh" ? (
             <>
               <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                 <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <p className="text-xs text-slate-500">Today&apos;s action</p>
+                  <p className="text-xs text-slate-500">Recommendation</p>
                   <p className="mt-1 text-lg font-bold text-slate-900">{cashPlan.action}</p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -458,23 +475,23 @@ export function TradePlanPage() {
                   <p className="mt-1 text-lg font-bold text-slate-900">{formatCurrency(cash)}</p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <p className="text-xs text-slate-500">Used for buys</p>
+                  <p className="text-xs text-slate-500">To invest</p>
                   <p className="mt-1 text-lg font-bold text-slate-900">{formatCurrency(cashPlan.totalUsed)}</p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <p className="text-xs text-slate-500">Leftover cash</p>
+                  <p className="text-xs text-slate-500">Cash remaining</p>
                   <p className="mt-1 text-lg font-bold text-slate-900">{formatCurrency(cashPlan.cashLeft)}</p>
                 </div>
               </div>
 
               <Card
-                title="Fresh Money Recommendation"
+                title="Recommendation"
                 subtitle="Exact shares to buy, or a clear wait/stagger instruction when risk is high."
               >
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Today&apos;s action</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Action</p>
                       <p className="mt-1 text-2xl font-bold text-slate-950">{cashPlan.action}</p>
                     </div>
                     <Badge color={cashPlan.rows.length > 0 ? "green" : "amber"}>
@@ -482,26 +499,26 @@ export function TradePlanPage() {
                     </Badge>
                   </div>
                   <p className="mt-4 text-sm leading-6 text-slate-700">{cashPlan.message}</p>
-                  {cashPlan.rows.length === 0 && cashPlan.minimumNeededSymbol && (
-                    <p className="mt-3 text-xs leading-5 text-slate-500">
-                      Smallest practical target currently needs around {formatCurrency(cashPlan.minimumNeeded)} for{" "}
-                      {cashPlan.minimumNeededSymbol}.
-                    </p>
-                  )}
+                  <div className="mt-4 flex items-center gap-2 text-xs font-medium text-slate-500">
+                    <ShieldCheck className="h-4 w-4" />
+                    This is a draft plan for review; no orders are placed.
+                  </div>
                 </div>
-                <div className="mt-4">
-                  <Table
-                    maxHeight="360px"
-                    columns={[
-                      { key: "stock", label: "Stock" },
-                      { key: "buy", label: "Suggested Buy", align: "right" },
-                      { key: "price", label: "Latest Price", align: "right" },
-                      { key: "value", label: "Buy Value", align: "right" },
-                      { key: "reason", label: "Reason" },
-                    ]}
-                    data={cashPlanRows}
-                  />
-                </div>
+                {cashPlan.rows.length > 0 && (
+                  <div className="mt-4">
+                    <Table
+                      maxHeight="360px"
+                      columns={[
+                        { key: "stock", label: "Stock" },
+                        { key: "action", label: "Action" },
+                        { key: "price", label: "Price", align: "right" },
+                        { key: "amount", label: "Amount", align: "right" },
+                        { key: "reason", label: "Why" },
+                      ]}
+                      data={cashPlanRows}
+                    />
+                  </div>
+                )}
               </Card>
             </>
           ) : (
@@ -539,12 +556,32 @@ export function TradePlanPage() {
                 </div>
               )}
 
-              {hasHoldings && <Card title="Why This Plan">
+              {hasHoldings && <Card title="Monthly Positional View" subtitle="What the assistant understood from your holdings">
                 <p className="text-sm leading-6 text-slate-700">{explanation}</p>
+                <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-lg bg-red-50 p-3">
+                    <p className="text-xs font-medium text-red-700">Exit / reduce</p>
+                    <p className="mt-1 text-lg font-bold text-red-900">
+                      {preview.rows.filter((row) => row.action === "SELL" || row.action === "REDUCE").length}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-emerald-50 p-3">
+                    <p className="text-xs font-medium text-emerald-700">Buy / add</p>
+                    <p className="mt-1 text-lg font-bold text-emerald-900">
+                      {preview.rows.filter((row) => row.action === "BUY" || row.action === "ADD").length}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 p-3">
+                    <p className="text-xs font-medium text-slate-600">Hold / wait</p>
+                    <p className="mt-1 text-lg font-bold text-slate-900">
+                      {preview.rows.filter((row) => row.action === "HOLD" || row.action === "PAUSED" || row.action === "IGNORED").length}
+                    </p>
+                  </div>
+                </div>
               </Card>}
 
               <Card
-                title="Personalized Rebalance Trades"
+                title="Recommended Changes"
                 subtitle={hasHoldings ? "Your exact action list" : "Waiting for your holdings"}
                 action={
                   <select value={filter} onChange={(event) => setFilter(event.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
@@ -556,12 +593,10 @@ export function TradePlanPage() {
                   maxHeight="620px"
                   columns={[
                     { key: "stock", label: "Stock" },
-                    { key: "youHave", label: "You Have", align: "right" },
-                    { key: "modelWants", label: "Model Wants", align: "right" },
-                    { key: "finalToday", label: "Final Today", align: "right" },
+                    { key: "current", label: "Current", align: "right" },
+                    { key: "target", label: "Target", align: "right" },
                     { key: "action", label: "Action", align: "center" },
-                    { key: "targetValue", label: "Model Value", align: "right" },
-                    { key: "todayValue", label: "Today Value", align: "right" },
+                    { key: "amount", label: "Amount", align: "right" },
                     { key: "reason", label: "Reason" },
                   ]}
                   data={tableRows}
@@ -570,8 +605,8 @@ export function TradePlanPage() {
                   <button onClick={handleExport} className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                     Export CSV
                   </button>
-                  <button onClick={handleCopy} className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                    Copy Trades
+                  <button onClick={handleCopy} className="inline-flex items-center justify-center gap-1 rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                    Copy Trades <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </Card>
