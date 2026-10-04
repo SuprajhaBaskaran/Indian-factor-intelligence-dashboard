@@ -16,6 +16,7 @@ import {
   getStocks,
   getStockPrices,
 } from "@/lib/data";
+// User-specific holdings and cash are managed through useUserData/Supabase.
 
 export interface UserHolding {
   symbol: string;
@@ -93,47 +94,6 @@ export interface CashDeploymentPlan {
   minimumNeededSymbol: string | null;
   action: "Deploy" | "Stagger" | "Wait";
   message: string;
-}
-
-const HOLDINGS_KEY = "nifty200_user_holdings_v2";
-const CASH_KEY = "nifty200_user_cash_v2";
-
-export const demoHoldings: UserHolding[] = [
-  { symbol: "PFC", quantity: 10 },
-  { symbol: "BAJFINANCE", quantity: 4 },
-  { symbol: "AMBUJACEM", quantity: 20 },
-  { symbol: "BSE", quantity: 3 },
-  { symbol: "ALKEM", quantity: 0 },
-];
-
-export function loadUserHoldings(): UserHolding[] {
-  try {
-    const raw = localStorage.getItem(HOLDINGS_KEY);
-    if (!raw) return [];
-    const rows = JSON.parse(raw) as UserHolding[];
-    return sanitizeHoldings(rows);
-  } catch {
-    return [];
-  }
-}
-
-export function saveUserHoldings(rows: UserHolding[]): void {
-  localStorage.setItem(HOLDINGS_KEY, JSON.stringify(sanitizeHoldings(rows)));
-}
-
-export function loadUserCash(): number {
-  const raw = localStorage.getItem(CASH_KEY);
-  const parsed = raw ? Number(raw) : 0;
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-export function saveUserCash(cash: number): void {
-  localStorage.setItem(CASH_KEY, String(Number.isFinite(cash) ? cash : 0));
-}
-
-export function clearUserPortfolio(): void {
-  localStorage.removeItem(HOLDINGS_KEY);
-  localStorage.removeItem(CASH_KEY);
 }
 
 export function sanitizeHoldings(rows: UserHolding[]): UserHolding[] {
@@ -685,24 +645,24 @@ export function getBenchmarkVerdicts(): {
       {
         question: "Did it beat Nifty 200?",
         answer:
-          dynamic && nifty
+          dynamic?.cagr != null && nifty?.cagr != null
             ? dynamic.cagr > nifty.cagr
               ? "Yes, on CAGR in this backtest."
               : "No, Nifty 200 did better on CAGR."
-            : "Not available",
+            : "Full-period CAGR comparison unavailable because the return path is incomplete.",
       },
       {
         question: "Did it beat static factor mix?",
         answer:
-          dynamic && staticMix
+          dynamic?.cagr != null && staticMix?.cagr != null
             ? dynamic.cagr > staticMix.cagr
               ? "Yes, dynamic allocation did better."
               : "No, the simple fixed factor mix did better."
-            : "Not available",
+            : "Full-period CAGR comparison unavailable because the return path is incomplete.",
       },
       {
         question: "Worst fall from peak",
-        answer: dynamic ? formatPercent(dynamic.max_drawdown, 1) : "Not available",
+        answer: dynamic?.max_drawdown != null ? formatPercent(dynamic.max_drawdown, 1) : "Withheld because the return path is incomplete.",
       },
       {
         question: "Blind auto-trading?",
@@ -712,12 +672,18 @@ export function getBenchmarkVerdicts(): {
   };
 }
 
-export function scoreBacktestSummary(summary: BacktestSummary): number {
-  const returnScore = Math.max(0, summary.cagr) * 25;
-  const drawdownScore = Math.max(0, 1 + summary.max_drawdown) * 20;
-  const calmarScore = Math.max(0, summary.calmar) * 15;
-  const sharpeScore = Math.max(0, summary.sharpe) * 15;
-  const turnoverPenalty = Math.max(0, summary.avg_turnover) * 10;
+export function scoreBacktestSummary(summary: BacktestSummary): number | null {
+  if ([summary.cagr, summary.max_drawdown, summary.calmar, summary.sharpe, summary.avg_turnover].some((value) => value == null)) return null;
+  const cagr = summary.cagr as number;
+  const maxDrawdown = summary.max_drawdown as number;
+  const calmar = summary.calmar as number;
+  const sharpe = summary.sharpe as number;
+  const turnover = summary.avg_turnover as number;
+  const returnScore = Math.max(0, cagr) * 25;
+  const drawdownScore = Math.max(0, 1 + maxDrawdown) * 20;
+  const calmarScore = Math.max(0, calmar) * 15;
+  const sharpeScore = Math.max(0, sharpe) * 15;
+  const turnoverPenalty = Math.max(0, turnover) * 10;
   return returnScore + drawdownScore + calmarScore + sharpeScore - turnoverPenalty;
 }
 
@@ -732,6 +698,7 @@ export function getModelComparisonRows() {
       calmar: summary.calmar,
       turnover: summary.avg_turnover,
     }))
+    .filter((row): row is typeof row & { score: number } => row.score !== null)
     .sort((a, b) => b.score - a.score);
 }
 

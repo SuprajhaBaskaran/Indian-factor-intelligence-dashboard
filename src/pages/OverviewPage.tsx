@@ -225,7 +225,6 @@ export function OverviewPage() {
               { key: "calmar", label: "Calmar", align: "right" },
             ]}
             data={summaries.map((s) => ({
-              ...s,
               // Map by exact name. A chained .replace() silently leaves a
               // renamed strategy showing its full internal label.
               strategy_name: OVERVIEW_STRATEGY_LABEL[s.strategy_name] ?? s.strategy_name,

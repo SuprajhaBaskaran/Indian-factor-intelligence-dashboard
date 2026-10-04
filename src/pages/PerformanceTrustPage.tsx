@@ -1,160 +1,42 @@
 import { AlertTriangle, ShieldCheck } from "lucide-react";
 import { Badge, Card, Table } from "@/components/UI";
-import { UniverseCoverage } from "@/components/UniverseCoverage";
-import { formatNumber, formatPercent } from "@/lib/data";
-import { getBenchmarkVerdicts, getDecisionSnapshot, getModelComparisonRows } from "@/lib/product";
+import { formatNumber, getExperimentManifest, getStockLevelSummary } from "@/lib/data";
+import { getDecisionSnapshot } from "@/lib/product";
 
 export function PerformanceTrustPage() {
-  const verdicts = getBenchmarkVerdicts();
-  const summaries = [verdicts.dynamic, verdicts.staticMix, verdicts.nifty].filter(Boolean);
-  const comparisonRows = getModelComparisonRows();
   const { decision, risk, latestMonth, latestEod } = getDecisionSnapshot();
+  const manifest = getExperimentManifest();
+  const stockSummary = getStockLevelSummary() as { months?: number; omitted_periods?: string[]; path_complete?: boolean; period_statistics_scope?: string; return_definition?: string } | null;
+  const caveats = manifest?.caveats || [];
   const actionable = decision?.decision === "REBALANCE" || decision?.decision === "DEFENSIVE";
+  const recentMetricScope = stockSummary?.period_statistics_scope || "Evaluated periods only";
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-slate-900">Performance & Trust</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Plain-English checks for whether the model deserves trust.
-        </p>
+  return <div className="space-y-6">
+    <div><h2 className="text-xl font-bold text-slate-900">Trust</h2><p className="mt-1 text-sm text-slate-500">Current model status and research limitations, drawn from the published run report.</p></div>
+    <Card title="Current Model Status" subtitle="The model provides planning outputs; the application does not place brokerage orders">
+      <div className={`rounded-lg p-4 text-sm leading-6 ${risk.status === "Caution" || risk.status === "Danger" || risk.status === "Extreme" ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-900"}`}>
+        <div className="mb-2 flex flex-wrap gap-2"><Badge color={actionable ? "amber" : "slate"}>{decision?.decision || "RETAIN"}</Badge><Badge color={risk.status === "Normal" ? "green" : "amber"}>{risk.executionMode === "Full Execute" ? "Standard plan" : risk.executionMode}</Badge><Badge color="blue">Model month {latestMonth}</Badge><Badge color="slate">Latest EOD data {latestEod}</Badge></div>
+        <p className="font-semibold">{actionable ? "The latest monthly output indicates a rebalance, subject to the daily risk overlay." : "The latest monthly output does not call for a rebalance."}</p>
+        <p className="mt-1">Review and approve any action in My Plan. Daily risk controls can stagger or pause new buys.</p>
       </div>
-
-      <Card title="Current Deployability" subtitle="Whether the latest model output should produce trades now">
-        <div className={`rounded-lg p-4 text-sm leading-6 ${actionable ? "bg-amber-50 text-amber-900" : "bg-slate-50 text-slate-700"}`}>
-          <div className="flex flex-wrap gap-2">
-            <Badge color={actionable ? "amber" : "slate"}>{decision?.decision || "RETAIN"}</Badge>
-            <Badge color={risk.status === "Normal" ? "green" : "amber"}>{risk.executionMode}</Badge>
-            <Badge color="blue">Model month {latestMonth}</Badge>
-            <Badge color="green">EOD {latestEod}</Badge>
-          </div>
-          <p className="mt-3 font-semibold">
-            {actionable
-              ? "Current output is trade-actionable, subject to the daily execution guardrail."
-              : "Current output is not an automatic rebalance instruction."}
-          </p>
-          <p className="mt-1">
-            {actionable
-              ? "Trade Plan can convert approved model targets into exact quantities, then reduce or pause buys based on daily risk."
-              : "Raw targets, factor tilts, and sector exposures are shown for transparency, but Trade Plan should not force buys or sells until the rebalance gate passes."}
-          </p>
-        </div>
-      </Card>
-
-      <Card title="Trust Scorecard" subtitle="No hidden benchmark failures">
-        <Table
-          maxHeight="360px"
-          columns={[
-            { key: "question", label: "Question" },
-            { key: "answer", label: "Answer" },
-          ]}
-          data={verdicts.rows}
-        />
-      </Card>
-
-      <Card title="Benchmark Summary" subtitle="Current available strategies in the shipped data">
-        <Table
-          maxHeight="420px"
-          columns={[
-            { key: "strategy", label: "Strategy" },
-            { key: "cagr", label: "Avg yearly growth", align: "right" },
-            { key: "sharpe", label: "Sharpe", align: "right" },
-            { key: "drawdown", label: "Worst fall", align: "right" },
-            { key: "turnover", label: "Avg turnover", align: "right" },
-          ]}
-          data={summaries.map((summary) => ({
-            strategy: summary!.strategy_name,
-            cagr: formatPercent(summary!.cagr, 2),
-            sharpe: formatNumber(summary!.sharpe, 2),
-            drawdown: formatPercent(summary!.max_drawdown, 2),
-            turnover: formatPercent(summary!.avg_turnover, 2),
-          }))}
-        />
-      </Card>
-
-      <UniverseCoverage />
-
-      <Card
-        title="Model / Strategy Selection Score"
-        subtitle="Current scaffold: higher score balances return, drawdown, Sharpe, Calmar, and turnover"
-      >
-        <Table
-          maxHeight="360px"
-          columns={[
-            { key: "strategy", label: "Strategy" },
-            { key: "score", label: "Score", align: "right" },
-            { key: "cagr", label: "Growth", align: "right" },
-            { key: "drawdown", label: "Worst fall", align: "right" },
-            { key: "turnover", label: "Turnover", align: "right" },
-          ]}
-          data={comparisonRows.map((row) => ({
-            strategy: row.strategy,
-            score: formatNumber(row.score, 2),
-            cagr: formatPercent(row.cagr, 2),
-            drawdown: formatPercent(row.maxDrawdown, 2),
-            turnover: formatPercent(row.turnover, 2),
-          }))}
-        />
-        <p className="mt-4 text-xs leading-5 text-slate-500">
-          When the Python pipeline adds GMM/HMM/Markov/rule-based candidates, this table should rank those candidates
-          using walk-forward after-cost metrics rather than model name.
-        </p>
-      </Card>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card title="Required Caveats" subtitle="These must remain visible in the user product">
-          <div className="space-y-3">
-            {[
-              "The production model currently uses 189 usable stocks, not all 200 Nifty 200 symbols.",
-              "The 11 excluded symbols need reliable historical price and fundamental data before model inclusion.",
-              "Backtests may contain survivorship bias unless historical Nifty 200 constituents are reconstructed.",
-              "Monthly targets come from the model; daily execution modes come from predefined risk rules.",
-              "The LLM explains model outputs. It does not decide trades.",
-              "This is not suitable for blind auto-trading.",
-            ].map((item) => (
-              <div key={item} className="flex gap-2 text-sm leading-6 text-slate-700">
-                <AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-amber-500" />
-                <span>{item}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card title="User-Friendly Translations" subtitle="Terms normal users should see">
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            {[
-              ["CAGR", "Average yearly growth"],
-              ["Drawdown", "Fall from previous high"],
-              ["Volatility", "Expected ups and downs"],
-              ["Target weight", "Model wants you to hold"],
-              ["Regime", "Market condition"],
-              ["Turnover", "How much changes"],
-            ].map(([technical, simple]) => (
-              <div key={technical} className="rounded-lg bg-slate-50 p-3">
-                <p className="font-semibold text-slate-900">{technical}</p>
-                <p className="text-xs text-slate-500">{simple}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
+    </Card>
+    <Card title="Backtest coverage" subtitle="Incomplete historical paths limit full-period conclusions">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-lg bg-amber-50 p-3"><p className="text-xs text-amber-800">Historical path</p><p className="mt-1 font-semibold text-amber-950">{stockSummary?.path_complete === false ? "Incomplete" : "Status unavailable"}</p></div>
+        <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">Unresolved omitted periods</p><p className="mt-1 font-semibold text-slate-900">{stockSummary?.omitted_periods?.length ?? "Unavailable"}</p></div>
+        <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">Available statistics</p><p className="mt-1 font-semibold text-slate-900">{recentMetricScope}</p></div>
       </div>
-
-      <Card title="Current Product Claim">
-        <div className="rounded-lg bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
-          <div className="mb-2 flex items-center gap-2 font-semibold">
-            <ShieldCheck className="h-4 w-4" />
-            Allowed claim
-          </div>
-          <p>
-            The system uses a monthly factor-based portfolio model for the clean Nifty 200 modelling universe and a
-            daily EOD risk overlay for execution control. Benchmark results, costs, and caveats must be shown alongside
-            performance.
-          </p>
-          <div className="mt-3">
-            <Badge color="green">Decision support only</Badge>
-          </div>
-        </div>
-      </Card>
-    </div>
-  );
+      <p className="mt-3 text-sm leading-6 text-slate-600">Full-period CAGR, total return, drawdown and related metrics are withheld where the return path is incomplete. Any reported period statistics describe evaluated periods only. {stockSummary?.return_definition || "The published return definition is unavailable."}</p>
+      {stockSummary?.omitted_periods?.length ? <p className="mt-2 text-xs text-slate-500">Omitted periods: {stockSummary.omitted_periods.join(", ")}</p> : null}
+    </Card>
+    <Card title="Research limitations" subtitle="Limitations from the current run manifest">
+      {caveats.length ? <Table columns={[{ key: "severity", label: "Level" }, { key: "statement", label: "Limitation" }, { key: "why_not_fixed", label: "Context" }]} data={caveats.map((c) => ({ severity: c.severity, statement: c.statement, why_not_fixed: c.why_not_fixed }))} /> : <p className="text-sm text-slate-500">Research caveat manifest is unavailable.</p>}
+    </Card>
+    <Card title="Research measures" subtitle="Evaluated-period values are not full-period estimates">
+      <p className="text-sm leading-6 text-slate-600">{stockSummary?.months ?? "—"} periods evaluated. Full-period metrics are not presented here because the historical path is incomplete. The detailed validation results and definitions are in Research.</p>
+      <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500"><span>Latest model month: {latestMonth}</span><span>Latest data: {latestEod}</span><span>Available metric records: {formatNumber(stockSummary?.months ?? NaN, 0)}</span></div>
+    </Card>
+    <Card title="Current product claim"><div className="rounded-lg bg-emerald-50 p-4 text-sm leading-6 text-emerald-900"><p className="flex items-center gap-2 font-semibold"><ShieldCheck size={16} />Decision support</p><p className="mt-2">The system publishes monthly portfolio-model outputs with a daily EOD risk overlay. This is a planning tool, not autonomous brokerage execution.</p></div></Card>
+    {caveats.length === 0 && <div className="flex gap-2 text-xs text-slate-500"><AlertTriangle size={14}/>Run caveat data is not currently available.</div>}
+  </div>;
 }

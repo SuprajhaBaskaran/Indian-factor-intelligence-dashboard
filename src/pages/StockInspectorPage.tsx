@@ -1,51 +1,70 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge, Card, SignalBadge, Table } from "@/components/UI";
-import { formatPercent, getSignalEvents, getStockPrices, getStockSymbols } from "@/lib/data";
-import { buildTradePlan, excludedSymbols, formatCurrency, loadUserCash, loadUserHoldings } from "@/lib/product";
+import { TermTooltip } from "@/components/TermTooltip";
+import { formatPercent, getSignalEvents, getStockPrices, getStockSymbols, getStocks } from "@/lib/data";
+import { buildTradePlan, formatCurrency } from "@/lib/product";
+import { useUserData } from "@/lib/userData";
 
 export function StockInspectorPage() {
+  const userData = useUserData();
+  const [holdings, setHoldings] = useState<{symbol:string;quantity:number;avgPrice?:number}[]>([]);
+  const [cash, setCash] = useState(0);
+  const [holdingsLoading, setHoldingsLoading] = useState(true);
+  const [holdingsError, setHoldingsError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([userData.getHoldings(), userData.getCash()]).then(([h, c]) => {
+      if (!cancelled) { setHoldings(h); setCash(c); setHoldingsLoading(false); }
+    }).catch(() => { if (!cancelled) { setHoldingsError(true); setHoldingsLoading(false); } });
+    return () => { cancelled = true; };
+  }, [userData]);
   const symbols = getStockSymbols();
+  const stockNames = getStocks();
   const [symbol, setSymbol] = useState(symbols.includes("PFC") ? "PFC" : symbols[0] || "");
+  const [search, setSearch] = useState(symbol);
   const normalized = symbol.trim().toUpperCase();
-  const preview = buildTradePlan(loadUserHoldings(), loadUserCash());
+  const matches = stockNames.filter((stock) => symbols.includes(stock.symbol) && `${stock.symbol} ${stock.name}`.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 8);
+  const preview = buildTradePlan(holdings, cash);
   const row = preview.rows.find((item) => item.symbol === normalized);
   const signals = useMemo(() => getSignalEvents(normalized).slice(-20).reverse(), [normalized]);
   const prices = getStockPrices(normalized);
-  const latestPrice = prices[prices.length - 1]?.adjusted_close || prices[prices.length - 1]?.close || row?.latestPrice || 0;
+  const latestPricePoint = prices[prices.length - 1];
+  const latestPrice = latestPricePoint?.adjusted_close || latestPricePoint?.close || row?.latestPrice || 0;
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-slate-900">Stock Inspector</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Search one stock and see the model action, your quantity, and the signal history.
-        </p>
+        <h2 className="text-xl font-bold text-slate-900">Stocks</h2>
+        <p className="mt-1 text-sm text-slate-500">What does the model currently say about this stock?</p>
       </div>
 
       <Card>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <label className="flex-1 text-xs font-medium text-slate-600">
-            Search symbol
+            Search by symbol or company name
             <input
-              list="stock-symbols"
-              value={symbol}
-              onChange={(event) => setSymbol(event.target.value.toUpperCase())}
+              role="combobox"
+              aria-expanded={search.trim().length > 0 && matches.length > 0}
+              aria-controls="stock-search-options"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => { if (event.key === "Enter" && matches[0]) { event.preventDefault(); setSymbol(matches[0].symbol); setSearch(matches[0].symbol); } }}
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
               placeholder="PFC"
             />
+            {search.trim().length > 0 && matches.length > 0 && <div id="stock-search-options" role="listbox" className="mt-1 max-h-56 overflow-auto rounded-md border border-slate-200 bg-white shadow-sm">{matches.map((stock) => <button key={stock.symbol} type="button" role="option" aria-selected={normalized === stock.symbol} onClick={() => { setSymbol(stock.symbol); setSearch(stock.symbol); }} className="flex w-full justify-between px-3 py-2 text-left text-sm hover:bg-slate-50"><span className="font-medium text-slate-900">{stock.symbol}</span><span className="ml-3 truncate text-slate-500">{stock.name}</span></button>)}</div>}
           </label>
-          <datalist id="stock-symbols">
-            {symbols.map((item) => (
-              <option key={item} value={item} />
-            ))}
-          </datalist>
-          <div className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600">
-            Latest price: <span className="font-semibold text-slate-900">{formatCurrency(latestPrice)}</span>
+          <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+            Price: <span className="font-semibold text-slate-900">{latestPrice > 0 ? formatCurrency(latestPrice) : "Unavailable"}</span>
+            {latestPricePoint?.month && <span className="ml-2 text-xs text-slate-500">as of month {latestPricePoint.month}</span>}
           </div>
         </div>
       </Card>
 
-      {row ? (
+      {holdingsLoading && <p role="status" className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">Loading saved holdings to calculate your portfolio relevance…</p>}
+      {!holdingsLoading && holdingsError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">Saved holdings are unavailable. Personal trade sizing is hidden until the account data loads.</p>}
+
+      {row && !holdingsLoading && !holdingsError ? (
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <Card title={`${normalized} Action`} subtitle="Personalized using saved holdings">
             <div className="space-y-4">
@@ -60,8 +79,8 @@ export function StockInspectorPage() {
               <div className="grid grid-cols-2 gap-3">
                 <Metric label="You have" value={`${row.currentQuantity} shares`} />
                 <Metric label="Model wants" value={`${row.targetQuantity} shares`} />
-                <Metric
-                  label="Final today"
+          <Metric
+                  label="Current model action"
                   value={
                     row.finalTradeQuantity > 0
                       ? `Buy ${row.finalTradeQuantity}`
@@ -70,13 +89,15 @@ export function StockInspectorPage() {
                       : "No trade"
                   }
                 />
-                <Metric label="Trade value" value={formatCurrency(row.tradeValue)} />
+                <Metric label="Trade value" value={latestPrice > 0 ? formatCurrency(row.tradeValue) : "Unavailable"} />
               </div>
               <div className="rounded-lg bg-slate-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Why</p>
                 <p className="mt-2 text-sm leading-6 text-slate-700">{row.reason}</p>
                 <p className="mt-2 text-xs text-slate-500">Factor source: {row.factorReason}</p>
-                <p className="mt-1 text-xs text-slate-500">Target weight: {formatPercent(row.targetWeight, 2)}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  <TermTooltip term="target weight">Target weight</TermTooltip>: {formatPercent(row.targetWeight, 2)}
+                </p>
               </div>
             </div>
           </Card>
@@ -104,24 +125,8 @@ export function StockInspectorPage() {
           </Card>
         </div>
       ) : (
-        <Card title="Unavailable Symbol">
-          {excludedSymbols.includes(normalized) ? (
-            <div className="space-y-3 text-sm leading-6 text-slate-600">
-              <p>
-                {normalized} is one of the 11 excluded Nifty 200 symbols. It is not used by the model because reliable
-                historical price or fundamental data is incomplete.
-              </p>
-              <p>
-                A latest/current fundamentals row alone is not enough. The stock needs enough monthly price history and
-                usable historical fundamentals before it can enter backtests or portfolio targets.
-              </p>
-            </div>
-          ) : (
-            <p className="text-sm leading-6 text-slate-600">
-              This symbol is not available in the current 189-stock model universe. It may be outside the usable Nifty
-              200 modelling set or missing from the shipped data snapshot.
-            </p>
-          )}
+        <Card title="Stock data unavailable">
+          <p className="text-sm leading-6 text-slate-600">{symbols.includes(normalized) ? "No current model-plan row or analysis history is available for this stock in the loaded data." : "This stock is not present in the loaded stock data. Search the available symbols or check the spelling."}</p>
         </Card>
       )}
     </div>

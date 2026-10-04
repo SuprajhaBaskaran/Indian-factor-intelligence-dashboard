@@ -4,6 +4,8 @@ import {
   getPerformanceReport,
   getConstraintCompliance,
   getCoverageAudit,
+  getHistoricalUniverseResolution,
+  getLatestUniverseResolution,
   getPointInTimeSurvivorship,
   formatNumber,
 } from "@/lib/data";
@@ -388,7 +390,7 @@ export function ModelIntegrityPage() {
           )}
           <CheckRow
             label="Bootstrap intervals are pinned to a fixed seed"
-            detail={`Seed ${report?.confidence_intervals?.sharpe?.seed ?? "—"}, ${report?.confidence_intervals?.sharpe?.bootstrap_samples?.toLocaleString() ?? "—"} resamples, block length ${report?.confidence_intervals?.sharpe?.block_length ?? "—"}. The interval is identical on every run; one that moved between runs would not be a result.`}
+            detail={`Seed ${report?.confidence_intervals?.sharpe && "seed" in report.confidence_intervals.sharpe ? report.confidence_intervals.sharpe.seed : "—"}, ${report?.confidence_intervals?.sharpe && "bootstrap_samples" in report.confidence_intervals.sharpe ? report.confidence_intervals.sharpe.bootstrap_samples.toLocaleString() : "—"} resamples, block length ${report?.confidence_intervals?.sharpe && "block_length" in report.confidence_intervals.sharpe ? report.confidence_intervals.sharpe.block_length : "—"}. The interval is identical on every run; one that moved between runs would not be a result.`}
             pass
           />
           <CheckRow
@@ -508,36 +510,62 @@ function CheckRow({
  * warning colour.
  */
 function SurvivorshipCard({ pit }: { pit: PointInTimeSurvivorship }) {
+  const current = getLatestUniverseResolution();
+  if (pit.historical_months_with_snapshot_coverage !== undefined) {
+    const unresolvedBySnapshot = pit.unresolved_membership_symbols ?? {};
+    const unresolvedDates = Object.entries(unresolvedBySnapshot).filter(([, names]) => names.length > 0);
+    const uniqueNames = new Set(unresolvedDates.flatMap(([, names]) => names));
+    return (
+      <Card
+        title="Historical constituent coverage"
+        subtitle={pit.method || "Nifty 200 membership snapshots mapped to exact Bhavcopy identifiers"}
+      >
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <StatCard label="Source snapshots" value={String(pit.membership_snapshots ?? "—")} color="blue" />
+          <StatCard label="Months with snapshot coverage" value={String(pit.historical_months_with_snapshot_coverage)} color="green" />
+          <StatCard label="Months without snapshots" value={String(pit.historical_months_without_snapshot_coverage ?? "—")} color={pit.historical_months_without_snapshot_coverage ? "amber" : "green"} />
+          <StatCard label="Snapshot dates with unresolved tickers" value={String(unresolvedDates.length)} subvalue={`${uniqueNames.size} distinct labels across snapshots`} color={unresolvedDates.length ? "amber" : "green"} />
+        </div>
+          {current && <p className="mt-3 text-xs text-slate-600">
+            Latest model month {Object.keys(getHistoricalUniverseResolution()).sort().at(-1) || "—"}: {current.matched_count} members resolved, {current.unresolved_count} unresolved (snapshot {current.snapshot_date || "unavailable"}).
+          </p>}
+        <p className="text-xs text-slate-600 mt-3 leading-relaxed">
+          Historical constituent reconstruction is in use, but is partial. The pipeline uses exact membership snapshots where available; it does not fill missing months or unresolved names from today's index constituents. The unresolved-ticker count above is a count of snapshot dates, not a current production exclusion count.
+        </p>
+      </Card>
+    );
+  }
+
   const late = pit.db_symbols_not_yet_listed_examples ?? {};
   const lateNames = Object.entries(late).slice(0, 8);
 
   return (
     <Card
       title="Survivorship, measured"
-      subtitle={`${pit.symbols_observed.toLocaleString()} symbols observed trading across ${pit.months_covered} NSE bhavcopy month-ends, ${pit.archive_floor} to ${pit.archive_ceiling}`}
+      subtitle={`${pit.symbols_observed ?? 0} symbols observed trading across ${pit.months_covered ?? 0} NSE bhavcopy month-ends, ${pit.archive_floor ?? "—"} to ${pit.archive_ceiling ?? "—"}`}
     >
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
           label="Unlisted symbols gated"
-          value={String(pit.db_symbols_not_yet_listed_at_archive_start)}
-          subvalue={`of ${pit.db_symbols} in the database`}
+          value={String(pit.db_symbols_not_yet_listed_at_archive_start ?? 0)}
+          subvalue={`of ${pit.db_symbols ?? 0} in the database`}
           color="green"
         />
         <StatCard
           label="Backtest months gated"
-          value={`${pit.backtest_months_gated_pct.toFixed(0)}%`}
-          subvalue={`${pit.backtest_months_gated} of ${pit.backtest_months_gated + pit.backtest_months_ungated} months`}
+          value={`${(pit.backtest_months_gated_pct ?? 0).toFixed(0)}%`}
+          subvalue={`${pit.backtest_months_gated ?? 0} of ${(pit.backtest_months_gated ?? 0) + (pit.backtest_months_ungated ?? 0)} months`}
           color="green"
         />
         <StatCard
           label="Names never ingested"
-          value={String(pit.stopped_trading_absent_from_db)}
+          value={String(pit.stopped_trading_absent_from_db ?? 0)}
           subvalue="traded early, gone by the end"
           color="red"
         />
         <StatCard
           label="Trading universe grew"
-          value={`${pit.trading_universe_at_archive_start.toLocaleString()} → ${pit.trading_universe_at_archive_end.toLocaleString()}`}
+          value={`${(pit.trading_universe_at_archive_start ?? 0).toLocaleString()} → ${(pit.trading_universe_at_archive_end ?? 0).toLocaleString()}`}
           subvalue="symbols per month-end"
           color="blue"
         />
@@ -545,7 +573,7 @@ function SurvivorshipCard({ pit }: { pit: PointInTimeSurvivorship }) {
 
       <div className="mt-4 space-y-3">
         <p className="text-xs text-slate-600 leading-relaxed">
-          {pit.interpretation}
+          {pit.interpretation || "Historical membership coverage is not fully available."}
         </p>
 
         {pit.gate_enabled ? (
@@ -591,7 +619,7 @@ function SurvivorshipCard({ pit }: { pit: PointInTimeSurvivorship }) {
             Exclusion: not corrected
           </p>
           <p className="text-xs text-rose-700 leading-relaxed">
-            {pit.stopped_trading_absent_from_db} names were tradable early in
+              {pit.stopped_trading_absent_from_db ?? 0} names were tradable early in
             the window and are absent from the database, so they cannot drag
             the result. A sample of them:{" "}
             <span className="font-mono">

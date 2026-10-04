@@ -7,6 +7,7 @@ import {
   getRegimePerformance,
   formatPercent,
   formatNumber,
+  getStockLevelSummary,
 } from "@/lib/data";
 
 /**
@@ -52,12 +53,13 @@ const STRATEGY_BLURB: Record<string, string> = {
   "Nifty 200 Buy & Hold":
     "100% in the Nifty 200 price index, bought once and held. Cap-weighted and price-only, so dividends are excluded.",
   "Universe Equal-Weight":
-    "Every stock in the 189-name universe, equal weight, rebalanced monthly. No factors at all. This is the baseline the factor layer has to beat, and beating it is the point.",
+    "Every stock in the historical backtest universe, equal weight, rebalanced monthly. No factors at all; this is a research comparator.",
 };
 
 export function BacktestPage() {
   const btPortfolio = getBacktestPortfolio();
   const summaries = getBacktestSummary();
+  const stockSummary = getStockLevelSummary() as { path_complete?: boolean; omitted_periods?: string[]; period_statistics_scope?: string } | null;
   const regimePerf = getRegimePerformance();
 
   if (btPortfolio.length === 0) {
@@ -142,6 +144,8 @@ export function BacktestPage() {
         </p>
       </div>
 
+      {stockSummary?.path_complete === false && <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"><p className="font-semibold">Incomplete historical return path · {stockSummary.omitted_periods?.length ?? "Some"} periods omitted</p><p className="mt-1">Full-period CAGR, total return, maximum drawdown and Calmar are withheld. The available risk and monthly statistics describe evaluated periods only. The strategy series below are research comparisons, not production-strategy recommendations.</p></div>}
+
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {summaries.map((s) => (
@@ -152,14 +156,14 @@ export function BacktestPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-[10px] text-slate-500 uppercase">CAGR</p>
-                <p className={`text-lg font-bold ${s.cagr >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                  {formatPercent(s.cagr)}
+                <p className={`text-lg font-bold ${s.cagr == null ? "text-slate-500" : s.cagr >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                  {s.cagr == null ? "Withheld" : formatPercent(s.cagr)}
                 </p>
               </div>
               <div>
                 <p className="text-[10px] text-slate-500 uppercase">Total Return</p>
-                <p className={`text-lg font-bold ${s.total_return >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                  {formatPercent(s.total_return)}
+                <p className={`text-lg font-bold ${s.total_return == null ? "text-slate-500" : s.total_return >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                  {s.total_return == null ? "Withheld" : formatPercent(s.total_return)}
                 </p>
               </div>
               <div>

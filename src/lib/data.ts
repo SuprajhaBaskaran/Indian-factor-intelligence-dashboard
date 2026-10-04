@@ -36,6 +36,7 @@ import type {
   ExperimentManifest,
   FundamentalCoverageAudit,
   PointInTimeSurvivorship,
+  HistoricalUniverseResolution,
   ForwardOutlook,
 } from "@/types";
 import { REGIME_LABELS } from "@/types";
@@ -86,7 +87,9 @@ let constraintCompliance: PortfolioConstraintCompliance | null = null;
 let experimentManifest: ExperimentManifest | null = null;
 let coverageAudit: FundamentalCoverageAudit | null = null;
 let pointInTime: PointInTimeSurvivorship | null = null;
+let historicalUniverseResolution: Record<string, HistoricalUniverseResolution> = {};
 let forwardOutlook: ForwardOutlook | null = null;
+let stockLevelSummary: Record<string, unknown> | null = null;
 let dashboardDataLoaded = false;
 
 const DATA_BASE = "/data";
@@ -146,7 +149,9 @@ export async function loadDashboardData(): Promise<void> {
     experimentManifestJson,
     coverageAuditJson,
     pointInTimeJson,
+    historicalUniverseResolutionJson,
     forwardOutlookJson,
+    stockLevelSummaryJson,
   ] = await Promise.all([
     fetchDataFile<RegimePrediction[]>("regime_predictions"),
     fetchDataFile<FactorBasketEntry[]>("factor_baskets"),
@@ -181,7 +186,9 @@ export async function loadDashboardData(): Promise<void> {
       "fundamental_coverage_audit",
     ),
     fetchOptionalDataFile<PointInTimeSurvivorship>("point_in_time_universe"),
+    fetchOptionalDataFile<Record<string, HistoricalUniverseResolution>>("historical_universe_resolution"),
     fetchOptionalDataFile<ForwardOutlook>("forward_outlook"),
+    fetchOptionalDataFile<Record<string, unknown>>("backtest_stock_level_summary"),
   ]);
 
   regimes = regimesJson;
@@ -213,7 +220,9 @@ export async function loadDashboardData(): Promise<void> {
   experimentManifest = experimentManifestJson;
   coverageAudit = coverageAuditJson;
   pointInTime = pointInTimeJson;
+  historicalUniverseResolution = historicalUniverseResolutionJson || {};
   forwardOutlook = forwardOutlookJson;
+  stockLevelSummary = stockLevelSummaryJson;
   dashboardDataLoaded = true;
 }
 
@@ -294,6 +303,11 @@ export function getPortfolioTargets(month?: string): PortfolioTarget[] {
       ? portfolioTargets[portfolioTargets.length - 1].month
       : "";
   return portfolioTargets.filter((p) => p.month === latestMonth);
+}
+
+/** All published target rows, for page-level comparisons across stored months. */
+export function getAllPortfolioTargets(): PortfolioTarget[] {
+  return portfolioTargets;
 }
 
 export function getRebalanceTrades(month?: string): RebalanceTrade[] {
@@ -428,6 +442,16 @@ export function getPointInTimeSurvivorship(): PointInTimeSurvivorship | null {
   return pointInTime;
 }
 
+/** Latest exact-membership resolution used by the model for the current month. */
+export function getLatestUniverseResolution(): HistoricalUniverseResolution | null {
+  const latestMonth = Object.keys(historicalUniverseResolution).sort().at(-1);
+  return latestMonth ? historicalUniverseResolution[latestMonth] ?? null : null;
+}
+
+export function getHistoricalUniverseResolution(): Record<string, HistoricalUniverseResolution> {
+  return historicalUniverseResolution;
+}
+
 /**
  * The T+1 forward view and the out-of-sample record of how the model's own
  * past forecasts scored. Returns null when the pipeline has not emitted it, so
@@ -435,6 +459,11 @@ export function getPointInTimeSurvivorship(): PointInTimeSurvivorship | null {
  */
 export function getForwardOutlook(): ForwardOutlook | null {
   return forwardOutlook;
+}
+
+/** Authoritative stock-level backtest summary, including path completeness and omitted periods. */
+export function getStockLevelSummary(): Record<string, unknown> | null {
+  return stockLevelSummary;
 }
 
 export function getOverviewData(): OverviewData | null {
@@ -689,6 +718,5 @@ export function formatNumber(v: number | null | undefined, digits = 2): string {
   if (v === null || v === undefined || isNaN(v)) return "—";
   return v.toFixed(digits);
 }
-
 
 

@@ -166,6 +166,7 @@ interface TableProps {
   maxHeight?: string;
   rowKey?: (row: TableRow, idx: number) => string;
   onRowClick?: (row: TableRow) => void;
+  emptyMessage?: string;
 }
 
 export function Table({
@@ -174,18 +175,19 @@ export function Table({
   maxHeight = "400px",
   rowKey,
   onRowClick,
+  emptyMessage = "No records are available yet.",
 }: TableProps) {
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center text-slate-500 text-sm py-12">
-        No data available
+        <div className="flex items-center justify-center text-slate-500 text-sm py-12 px-4 text-center">
+          {emptyMessage}
       </div>
     );
   }
 
   return (
-    <div className="overflow-auto" style={{ maxHeight }}>
-      <table className="w-full text-sm">
+    <div className="overflow-auto rounded-lg border border-slate-100" style={{ maxHeight }}>
+      <table className="w-full min-w-[640px] text-sm">
         <thead className="sticky top-0 bg-slate-50 z-10">
           <tr className="border-b border-slate-200">
             {columns.map((col) => (
@@ -264,7 +266,7 @@ export function ProgressBar({
 export function LoadingSpinner({ message = "Loading..." }: { message?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-20">
-      <div className="w-8 h-8 border-3 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+      <div role="status" aria-label={message} className="w-8 h-8 border-[3px] border-slate-200 border-t-blue-600 rounded-full animate-spin" />
       <p className="text-sm text-slate-500 mt-3">{message}</p>
     </div>
   );
@@ -272,15 +274,24 @@ export function LoadingSpinner({ message = "Loading..." }: { message?: string })
 
 export function EmptyState({
   message = "No data available",
+  title,
+  detail,
+  action,
   icon,
 }: {
   message?: string;
+  title?: string;
+  detail?: string;
+  action?: React.ReactNode;
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center py-12">
-      {icon || <AlertTriangle className="w-8 h-8 text-slate-300" />}
-      <p className="text-sm text-slate-500 mt-2">{message}</p>
+    <div className="flex flex-col items-center justify-center py-12 px-5 text-center rounded-xl border border-dashed border-slate-200 bg-slate-50/70">
+      <span className="text-slate-400">{icon || <AlertTriangle className="w-7 h-7" />}</span>
+      {title && <p className="text-sm font-semibold text-slate-800 mt-3">{title}</p>}
+      <p className="text-sm text-slate-500 mt-2 max-w-lg">{message}</p>
+      {detail && <p className="text-xs text-slate-400 mt-1 max-w-lg">{detail}</p>}
+      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }

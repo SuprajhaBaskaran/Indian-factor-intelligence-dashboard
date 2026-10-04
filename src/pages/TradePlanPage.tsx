@@ -1,25 +1,24 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, PencilLine, ShieldCheck, Upload, Wallet } from "lucide-react";
+import { useAuth } from "@/lib/auth";
 import { Badge, Card, SignalBadge, Table } from "@/components/UI";
+import { TermTooltip } from "@/components/TermTooltip";
+import { markFreshMoneyIncluded, readUserExperience } from "@/lib/userExperience";
 import {
   assessDailyRisk,
   buildCashDeploymentPlan,
   buildDeterministicExplanation,
   buildTradePlan,
-  clearUserPortfolio,
   downloadTextFile,
   formatCurrency,
   getLatestPrice,
-  loadUserCash,
-  loadUserHoldings,
   parseHoldingsCsv,
   parseHoldingsText,
-  saveUserCash,
-  saveUserHoldings,
   tradePlanToCsv,
   type UserHolding,
-  getDecisionSnapshot,
 } from "@/lib/product";
+import { useUserData, type UserHolding as PersistedHolding } from "@/lib/userData";
+import { getDecisionSnapshot } from "@/lib/product";
 
 type TradeMode = "fresh" | "rebalance";
 
@@ -48,14 +47,39 @@ function createBlankHoldingRows(rows: UserHolding[]): UserHolding[] {
 }
 
 export function TradePlanPage() {
-  const [mode, setMode] = useState<TradeMode>("fresh");
-  const [holdingsText, setHoldingsText] = useState(() => holdingsToText(loadUserHoldings()));
+  const userData = useUserData();
+  const { user } = useAuth();
+  const experience = user ? readUserExperience(user.id) : null;
+  const [mode, setMode] = useState<TradeMode>(() => experience?.hasInvestments ? "rebalance" : "fresh");
+  const [holdingsText, setHoldingsText] = useState("");
   const [bulkEntryText, setBulkEntryText] = useState("");
-  const [cashText, setCashText] = useState(() => String(loadUserCash()));
+  const [cashText, setCashText] = useState("0");
+  const [dataLoading, setDataLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
   const [minimumTradeText, setMinimumTradeText] = useState("1000");
   const [basketText, setBasketText] = useState("");
   const [filter, setFilter] = useState("ALL");
+  const [savedInput, setSavedInput] = useState<{ holdings: string; cash: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([userData.getHoldings(), userData.getCash()]).then(([savedHoldings, savedCash]) => {
+      if (cancelled) return;
+      setHoldingsText(holdingsToText(savedHoldings));
+      const pendingFreshMoney = experience?.freshMoneyPending ? experience.freshMoneyAmount : 0;
+      setCashText(String(savedCash + pendingFreshMoney));
+      setSavedInput({ holdings: holdingsToText(savedHoldings), cash: String(savedCash) });
+      setDataLoading(false);
+      if (!experience?.hasInvestments && savedHoldings.length > 0) setMode("rebalance");
+      if (savedCash === 0 && pendingFreshMoney === 0) void userData.getPreferences().then((prefs) => {
+        if (!cancelled && prefs.preferredCapital && prefs.preferredCapital > 0) setCashText(String(prefs.preferredCapital));
+      }).catch(() => undefined);
+    }).catch((error: unknown) => {
+      if (!cancelled) { setLoadError(error instanceof Error ? error.message : "Could not load saved portfolio."); setDataLoading(false); }
+    });
+    return () => { cancelled = true; };
+  }, [userData, experience?.hasInvestments]);
 
   const holdings = useMemo(() => parseHoldingsText(holdingsText), [holdingsText]);
   const hasHoldings = holdings.length > 0;
@@ -71,6 +95,7 @@ export function TradePlanPage() {
   const preview = buildTradePlan(holdings, cash, minimumTradeValue);
   const cashPlan = buildCashDeploymentPlan(cash, basketSymbols, minimumTradeValue);
   const snapshot = getDecisionSnapshot();
+  const recommendationAvailable = snapshot.latestMonth !== "—" && snapshot.decision !== null;
   const explanation = buildDeterministicExplanation(assessDailyRisk(), preview.rows);
   const executableRows = preview.rows.filter((row) => row.finalTradeQuantity !== 0);
 
@@ -112,11 +137,44 @@ export function TradePlanPage() {
       reason: row.reason,
     })) : [];
 
-  const handleSave = () => {
-    saveUserHoldings(holdings);
-    saveUserCash(cash);
-    setSaveMessage(mode === "fresh" ? "Your investment amount was saved in this browser." : "Your holdings and cash were saved in this browser.");
+  const handleSave = async () => {
+    setSaveMessage("");
+    try {
+      await Promise.all([userData.saveHoldings(holdings as PersistedHolding[]), userData.saveCash(cash)]);
+      const snapshot = getDecisionSnapshot();
+      const planItems = mode === "fresh"
+        ? cashPlan.rows.map((row) => ({
+            symbol: row.symbol,
+            currentQuantity: 0,
+            targetQuantity: row.quantity,
+            executableQuantity: row.quantity,
+            action: "BUY",
+            reason: row.reason,
+          }))
+        : preview.rows.map((row) => ({
+            symbol: row.symbol,
+            currentQuantity: row.currentQuantity,
+            targetQuantity: row.targetQuantity,
+            executableQuantity: row.finalTradeQuantity,
+            action: row.action,
+            reason: row.reason,
+          }));
+      await userData.saveTradePlan({
+        generatedAt: new Date().toISOString(),
+        action: snapshot.decision?.decision || "RETAIN",
+        status: "draft",
+        signalDate: `${snapshot.latestMonth || new Date().toISOString().slice(0, 7)}-01`,
+        items: planItems,
+      });
+      if (user?.id && experience?.freshMoneyPending) markFreshMoneyIncluded(user.id);
+      setSavedInput({ holdings: holdingsToText(holdings), cash: cashText });
+      setSaveMessage(mode === "fresh" ? "Your investment amount and draft plan were saved to your account." : "Your holdings, cash, and draft plan were saved to your account.");
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : "Could not save your plan. Please try again.");
+    }
   };
+
+  const planEdited = savedInput !== null && (savedInput.holdings !== holdingsText || savedInput.cash !== cashText);
 
   const updateManualRow = (index: number, patch: Partial<UserHolding>) => {
     const next = createBlankHoldingRows(holdings).map((row, rowIndex) =>
@@ -140,12 +198,14 @@ export function TradePlanPage() {
     setHoldingsText(holdingsToText(next));
   };
 
-  const handleReset = () => {
-    clearUserPortfolio();
-    setHoldingsText("");
-    setBulkEntryText("");
-    setCashText("0");
-    setSaveMessage("Saved portfolio cleared.");
+  const handleReset = async () => {
+    try {
+      await Promise.all([userData.saveHoldings([]), userData.saveCash(0)]);
+      setHoldingsText("");
+      setBulkEntryText("");
+      setCashText("0");
+      setSaveMessage("Saved portfolio cleared.");
+    } catch (error) { setSaveMessage(error instanceof Error ? error.message : "Could not clear saved portfolio."); }
   };
 
   const handleExport = () => {
@@ -189,13 +249,9 @@ export function TradePlanPage() {
         <h2 className="text-xl font-bold text-slate-900">My Plan</h2>
         <p className="mt-1 text-sm text-slate-500">Turn fresh cash or existing holdings into a monthly positional trade plan.</p>
       </div>
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge color="blue">Model recommendation</Badge>
-          <span>Model month {snapshot.latestMonth}</span>
-          <span className="text-blue-700">Save My Plan to store the current inputs in this browser.</span>
-        </div>
-      </div>
+      {dataLoading && <p role="status" className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">Loading your saved holdings and cash…</p>}
+      {loadError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">Saved portfolio unavailable: {loadError}. Review and enter details manually; saved values are not assumed.</div>}
+      {!dataLoading && recommendationAvailable ? <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950"><div className="flex flex-wrap items-center gap-2"><Badge color="blue">Model recommendation</Badge><span>Model month {snapshot.latestMonth}</span><Badge color={planEdited ? "amber" : "slate"}>{planEdited ? "Your edited draft" : "Your saved inputs"}</Badge><span className="text-blue-700">Save My Plan to store the current inputs and draft actions.</span></div></div> : !dataLoading && <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Current model recommendation unavailable. Your inputs can still be saved for later review.</div>}
       {saveMessage && <div role="status" className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">{saveMessage}</div>}
 
       <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:grid-cols-3">
@@ -261,7 +317,7 @@ export function TradePlanPage() {
               />
             </label>
             <label className="text-xs font-medium text-slate-600">
-              Minimum trade size (₹)
+              <TermTooltip term="minimum trade size">Minimum trade size (₹)</TermTooltip>
               <input
                 value={minimumTradeText}
                 onChange={(event) => setMinimumTradeText(event.target.value)}
@@ -273,7 +329,7 @@ export function TradePlanPage() {
           {mode === "fresh" && (
             <div className="mt-5 space-y-4">
               <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm leading-6 text-blue-900">
-                Start here for a new user: enter investment capital and the AI will decide whether to buy now, stagger, or wait.
+                Start here for a new user: enter investment capital and the AI will decide whether to buy now, <TermTooltip term="stagger buys">stagger</TermTooltip>, or wait.
               </div>
               <label className="block text-xs font-semibold text-slate-700">
                 Optional: Restrict to specific stocks

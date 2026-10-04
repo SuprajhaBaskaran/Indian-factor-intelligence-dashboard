@@ -1,205 +1,87 @@
-import React, { useEffect, useState } from "react";
-import { getEodRefreshStatus, getExperimentManifest, getStocks } from "@/lib/data";
+import { useState } from "react";
+import type { ReactNode } from "react";
 import {
-  Briefcase,
-  CandlestickChart,
-  Database,
-  LayoutDashboard,
-  Menu,
-  Search,
-  Settings,
-  ShieldCheck,
-  SlidersHorizontal,
+  Activity, BriefcaseBusiness, ChartNoAxesCombined, Database, LayoutDashboard,
+  LogOut, Search, Settings, ShieldCheck, SlidersHorizontal, TrendingUp,
 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { getEodRefreshStatus, getExperimentManifest } from "@/lib/data";
 
 export type PageId =
   | "command-center"
+  | "market-view"
   | "trade-plan"
-  | "final-portfolio"
+  | "my-portfolio"
   | "stock-inspector"
   | "performance-trust"
-  | "advanced"
+  | "advanced-research"
   | "admin-status";
 
-interface LayoutProps {
+type Props = {
   currentPage: PageId;
   onNavigate: (page: PageId) => void;
-  children: React.ReactNode;
-}
+  isAdmin: boolean;
+  children: ReactNode;
+};
 
-const NAV_ITEMS: { id: PageId; label: string; icon: React.ReactNode }[] = [
-  { id: "command-center", label: "Command Center", icon: <LayoutDashboard className="w-4 h-4" /> },
-  { id: "trade-plan", label: "Trade Plan", icon: <CandlestickChart className="w-4 h-4" /> },
-  { id: "final-portfolio", label: "Final Portfolio", icon: <Briefcase className="w-4 h-4" /> },
-  { id: "stock-inspector", label: "Stock Inspector", icon: <Search className="w-4 h-4" /> },
-  { id: "performance-trust", label: "Performance & Trust", icon: <ShieldCheck className="w-4 h-4" /> },
-  { id: "advanced", label: "Advanced Research", icon: <SlidersHorizontal className="w-4 h-4" /> },
-  { id: "admin-status", label: "Admin Status", icon: <Settings className="w-4 h-4" /> },
+const navigation: { id: PageId; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean }[] = [
+  { id: "command-center", label: "Home", icon: LayoutDashboard },
+  { id: "market-view", label: "Market", icon: TrendingUp },
+  { id: "trade-plan", label: "My Plan", icon: ChartNoAxesCombined },
+  { id: "my-portfolio", label: "Portfolio", icon: BriefcaseBusiness },
+  { id: "stock-inspector", label: "Stocks", icon: Search },
+  { id: "performance-trust", label: "Trust", icon: ShieldCheck },
+  { id: "advanced-research", label: "Research", icon: SlidersHorizontal },
+  { id: "admin-status", label: "Admin Status", icon: Settings, adminOnly: true },
 ];
 
-function DataAsOf() {
-  const eod = getEodRefreshStatus();
-  const manifest = getExperimentManifest();
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(t);
-  }, []);
-
-  const measured = manifest?.data_freshness?.eod?.latest_date ?? null;
-  const asOf = measured || eod.resolved_date || eod.requested_date;
-  const ok = eod.status === "ok";
-
-  const daysBehind = (() => {
-    if (!asOf) return null;
-    const have = new Date(asOf + "T00:00:00");
-    if (Number.isNaN(have.getTime())) return null;
-    const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-    return Math.floor((todayUtc - have.getTime()) / 86_400_000);
-  })();
-
-  const stale = daysBehind !== null && daysBehind > 4;
-  const behind = !ok || (daysBehind !== null && daysBehind > 1);
-  const dot = !ok || stale ? "bg-red-500" : behind ? "bg-amber-500" : "bg-emerald-500";
-  const title = !ok
-    ? `Last EOD refresh ${eod.status}`
-    : stale
-      ? `NSE EOD data as of ${asOf} - ${daysBehind} days old. The daily refresh is not keeping up.`
-      : daysBehind !== null && daysBehind > 1
-        ? `NSE EOD data as of ${asOf} - ${daysBehind} days old.`
-        : `NSE EOD data as of ${asOf}`;
-
-  return (
-    <div className="flex flex-col items-end leading-tight" title={title}>
-      <span className="flex items-center gap-1.5 text-xs text-slate-600">
-        <span className={`w-2 h-2 rounded-full ${dot}`} />
-        {asOf ? `Data as of ${asOf}` : "Data date unknown"}
-        {stale && <span className="text-[10px] font-medium text-red-600">stale</span>}
-      </span>
-      <span className="text-[10px] text-slate-400 tabular-nums">
-        {now.toLocaleString(undefined, {
-          year: "numeric",
-          month: "short",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-        })}
-      </span>
-    </div>
-  );
-}
-
-export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
+export function Layout({ currentPage, onNavigate, isAdmin, children }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const stockCount = getStocks().length;
-
-  const handleNav = (page: PageId) => {
+  const { user, signOut } = useAuth();
+  const eod = getEodRefreshStatus();
+  const freshness = getExperimentManifest()?.data_freshness;
+  const daysBehind = freshness?.eod.trading_days_behind;
+  const freshnessText = eod.resolved_date
+    ? `Latest data ${eod.resolved_date}${daysBehind && daysBehind > 0 ? ` · ${daysBehind} trading day${daysBehind === 1 ? "" : "s"} behind` : ""}`
+    : "Latest data unavailable";
+  const dataCurrent = freshness?.status === "current" || (!freshness && eod.status === "ok");
+  const items = navigation.filter((item) => !item.adminOnly || isAdmin);
+  const go = (page: PageId) => {
     onNavigate(page);
     setMobileOpen(false);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      <aside className="hidden lg:flex w-60 flex-col bg-slate-900 text-slate-300 fixed h-screen z-30">
-        <SidebarContent currentPage={currentPage} onNavigate={handleNav} stockCount={stockCount} />
-      </aside>
-
-      {mobileOpen && (
-        <>
-          <div
-            className="lg:hidden fixed inset-0 bg-black/50 z-40"
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside className="lg:hidden w-60 flex-col bg-slate-900 text-slate-300 fixed h-screen z-50 flex">
-            <SidebarContent currentPage={currentPage} onNavigate={handleNav} stockCount={stockCount} />
-          </aside>
-        </>
-      )}
-
-      <div className="flex-1 lg:ml-60 flex flex-col min-h-screen">
-        <header className="bg-white border-b border-slate-200 px-4 lg:px-8 py-3 flex items-center justify-between sticky top-0 z-20">
-          <div className="flex items-center gap-3">
-            <button
-              className="lg:hidden p-1.5 rounded-md hover:bg-slate-100"
-              onClick={() => setMobileOpen(true)}
-            >
-              <Menu className="w-5 h-5 text-slate-700" />
-            </button>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center">
-                <Database className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <h1 className="text-sm font-bold text-slate-900">Indian Factor Intelligence</h1>
-                <p className="text-[10px] text-slate-500">Nifty 200 Trading Assistant</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-500 hidden sm:block">Monthly Positional Model</span>
-            <DataAsOf />
-          </div>
-        </header>
-
-        <main className="flex-1 p-4 lg:p-8 overflow-x-hidden">{children}</main>
-
-        <footer className="px-4 lg:px-8 py-4 border-t border-slate-200 bg-white">
-          <p className="text-xs text-slate-400 text-center">
-            Indian Regime/Factor/Portfolio Intelligence Dashboard - Nifty 200 Universe ({stockCount} Stocks) -
-            Monthly model + daily execution overlay
-          </p>
-        </footer>
-      </div>
-    </div>
-  );
-}
-
-function SidebarContent({
-  currentPage,
-  onNavigate,
-  stockCount,
-}: {
-  currentPage: PageId;
-  onNavigate: (page: PageId) => void;
-  stockCount: number;
-}) {
-  return (
-    <>
-      <div className="px-5 py-5 border-b border-slate-800">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-            <Database className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-white">Factor Intel</p>
-            <p className="text-[10px] text-slate-400">Trading Assistant</p>
-          </div>
+    <div className="min-h-screen bg-slate-50 text-slate-800">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-slate-800 bg-slate-900 text-slate-300 lg:flex">
+        <div className="flex h-[82px] items-center gap-3 border-b border-slate-800 px-6">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-600 text-white"><Database size={19} /></span>
+          <span><span className="block text-sm font-semibold text-white">Factor Intel</span><span className="block text-[11px] text-slate-400">Trading Assistant</span></span>
         </div>
-      </div>
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => onNavigate(item.id)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              currentPage === item.id
-                ? "bg-blue-600 text-white"
-                : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-            }`}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </nav>
-      <div className="px-5 py-4 border-t border-slate-800">
-        <div className="text-[10px] text-slate-500 space-y-1">
-          <p>Universe: Nifty 200 ({stockCount} stocks)</p>
+        <nav className="flex-1 space-y-1 px-3 py-5" aria-label="Main navigation">
+          {items.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => go(id)} aria-current={currentPage === id ? "page" : undefined} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm ${currentPage === id ? "bg-blue-600 font-semibold text-white" : "text-slate-300 hover:bg-slate-800 hover:text-white"}`}><Icon size={16} />{label}</button>)}
+        </nav>
+        <div className="border-t border-slate-800 px-5 py-4 text-[10px] leading-5 text-slate-500">
           <p>Mode: Monthly + EOD overlay</p>
           <p>Data: Indian SQLite/CSV</p>
+          {user && <button onClick={() => void signOut()} className="mt-2 flex items-center gap-1.5 text-slate-400 hover:text-white"><LogOut size={12} /> Sign out</button>}
         </div>
+      </aside>
+
+      {mobileOpen && <div className="fixed inset-0 z-50 bg-slate-950/40 lg:hidden" onClick={() => setMobileOpen(false)}><aside className="flex h-full w-60 flex-col bg-slate-900 text-slate-300" onClick={(event) => event.stopPropagation()}><div className="flex h-[82px] items-center gap-3 border-b border-slate-800 px-6"><span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-600 text-white"><Database size={19} /></span><span><span className="block text-sm font-semibold text-white">Factor Intel</span><span className="block text-[11px] text-slate-400">Trading Assistant</span></span></div><nav className="flex-1 space-y-1 px-3 py-5" aria-label="Mobile navigation">{items.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => go(id)} aria-current={currentPage === id ? "page" : undefined} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm ${currentPage === id ? "bg-blue-600 font-semibold text-white" : "text-slate-300"}`}><Icon size={16} />{label}</button>)}</nav><div className="border-t border-slate-800 px-5 py-4 text-[10px] leading-5 text-slate-500"><p>Mode: Monthly + EOD overlay</p><p>Data: Indian SQLite/CSV</p>{user && <button onClick={() => void signOut()} className="mt-2 flex items-center gap-1.5 text-slate-400"><LogOut size={12} /> Sign out</button>}</div></aside></div>}
+
+      <div className="min-h-screen lg:pl-60">
+        <header className="sticky top-0 z-20 flex h-[62px] items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-7">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setMobileOpen(true)} aria-label="Open navigation" className="rounded p-1 text-slate-500 hover:bg-slate-100 lg:hidden"><Activity size={19} /></button>
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-600 text-white"><Database size={16} /></span>
+            <span><span className="block text-sm font-semibold leading-4 text-slate-900">Indian Factor Intelligence</span><span className="block text-[10px] text-slate-500">Nifty 200 Trading Assistant</span></span>
+          </div>
+          <div className="flex items-center gap-2 text-right text-[11px] text-slate-500"><span className="hidden sm:inline">Monthly Positional Model</span><span className={`ml-2 h-2 w-2 rounded-full ${dataCurrent ? "bg-emerald-500" : "bg-amber-500"}`} /><span>{freshnessText}</span></div>
+        </header>
+        <main className="min-h-[calc(100vh-112px)] px-4 py-6 sm:px-7 sm:py-8">{children}</main>
+        <footer className="border-t border-slate-200 bg-white px-4 py-4 text-center text-[10px] text-slate-400">Indian Regime/Factor/Portfolio Intelligence Dashboard - Monthly model + daily execution overlay</footer>
       </div>
-    </>
+    </div>
   );
 }

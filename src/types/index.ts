@@ -246,15 +246,17 @@ export interface BacktestPortfolioPoint {
 
 export interface BacktestSummary {
   strategy_name: StrategyName;
-  cagr: number;
-  total_return: number;
-  annual_volatility: number;
-  sharpe: number;
-  max_drawdown: number;
-  calmar: number;
-  avg_turnover: number;
-  best_month: number;
-  worst_month: number;
+  cagr: number | null;
+  total_return: number | null;
+  annual_volatility: number | null;
+  sharpe: number | null;
+  max_drawdown: number | null;
+  calmar: number | null;
+  avg_turnover: number | null;
+  best_month: number | null;
+  worst_month: number | null;
+  statistics_scope?: string;
+  performance_availability?: { available: boolean; reason?: string; omitted_periods?: string[]; unavailable_metrics?: string[] };
 }
 
 export interface MarketIndexPoint {
@@ -373,15 +375,30 @@ export interface StockMeta {
  * symbol is missing. Written by the pipeline on every run.
  */
 export interface UniverseCoverage {
-  index_name: string;
+  index_name?: string;
   index_size: number;
   modeling_universe_size: number;
   excluded_count: number;
   /** Symbol -> upstream reason it cannot be modeled. */
-  excluded_symbols: Record<string, string>;
-  min_price_months_required: number;
-  min_fundamental_months_required: number;
+  excluded_symbols?: Record<string, string>;
+  /** All historical price identifiers; not the current candidate universe. */
+  historical_price_history_symbol_count?: number;
+  current_model_month?: string | null;
+  current_membership_snapshot_date?: string | null;
+  historical_membership_months_with_snapshot_coverage?: number;
+  historical_membership_months_without_snapshot_coverage?: number;
+  min_price_months_required?: number;
+  min_fundamental_months_required?: number;
   note?: string;
+}
+
+export interface HistoricalUniverseResolution {
+  signal_date?: string;
+  snapshot_date?: string | null;
+  available: boolean;
+  matched_count: number;
+  unresolved_count: number;
+  unresolved_symbols: string[];
 }
 
 /**
@@ -398,15 +415,20 @@ export interface CostScenario {
 }
 
 export interface CostScenarioTable {
-  scenarios: CostScenario[];
-  base_bps: number;
-  gross_cagr: number | null;
-  base_cagr: number | null;
-  stress_bps: number;
-  stress_cagr: number;
+  available?: boolean;
+  reason?: string;
+  scope?: string;
+  omitted_periods?: string[];
+  unavailable_metrics?: string[];
+  scenarios?: CostScenario[];
+  base_bps?: number;
+  gross_cagr?: number | null;
+  base_cagr?: number | null;
+  stress_bps?: number;
+  stress_cagr?: number;
   /** CAGR points lost between the zero-cost and worst-case rows. */
-  cagr_lost_to_costs_pct: number | null;
-  interpretation: string;
+  cagr_lost_to_costs_pct?: number | null;
+  interpretation?: string;
 }
 
 /**
@@ -467,8 +489,8 @@ export interface PerformanceReport {
     cvar_95_monthly: number;
     cvar_99_monthly: number;
     cvar_note: string;
-    longest_drawdown_months: number;
-    ulcer_index: number;
+    longest_drawdown_months: number | null;
+    ulcer_index: number | null;
     gain_to_pain: number;
     skew: number;
     excess_kurtosis: number;
@@ -482,6 +504,7 @@ export interface PerformanceReport {
     sharpe_basis?: string;
   };
   vs_benchmark: {
+    available?: true;
     benchmark: string;
     observations: number;
     beta: number;
@@ -492,8 +515,9 @@ export interface PerformanceReport {
     correlation: number;
     hit_rate_vs_benchmark: number;
     interpretation: string;
-  };
+  } | { available: false; reason: string };
   mean_return_test: {
+    available?: true;
     mean_monthly: number;
     /** HAC t-statistic on the mean return, correcting for autocorrelation. */
     t_stat: number;
@@ -501,8 +525,8 @@ export interface PerformanceReport {
     lags: number;
     lag1_autocorrelation: number;
     interpretation: string;
-  };
-  confidence_intervals: Partial<Record<"sharpe" | "cagr" | "mean", BootstrapCI>>;
+  } | { available: false; reason: string };
+  confidence_intervals: Partial<Record<"sharpe" | "cagr" | "mean", BootstrapCI | { available: false; reason: string }>> & { scope?: string };
   /**
    * Every trailing 36-month window of the backtest, scored the same way.
    *
@@ -569,7 +593,7 @@ export interface PerformanceReport {
     annualisation: string;
     note: string;
     error?: string;
-  };
+  } | { available: false; reason: string };
 }
 
 /** One symbol's fundamental-data status, and why it is what it is. */
@@ -613,24 +637,29 @@ export interface FundamentalCoverageAudit {
  */
 export interface PointInTimeSurvivorship {
   available: boolean;
-  gate_enabled: boolean;
-  archive_floor: string | null;
-  archive_ceiling: string | null;
-  months_covered: number;
-  symbols_observed: number;
-  trading_universe_at_archive_start: number;
-  trading_universe_at_archive_end: number;
+  method?: string;
+  membership_snapshots?: number;
+  unresolved_membership_symbols?: Record<string, string[]>;
+  historical_months_with_snapshot_coverage?: number;
+  historical_months_without_snapshot_coverage?: number;
+  gate_enabled?: boolean;
+  archive_floor?: string | null;
+  archive_ceiling?: string | null;
+  months_covered?: number;
+  symbols_observed?: number;
+  trading_universe_at_archive_start?: number;
+  trading_universe_at_archive_end?: number;
   /** Traded early, gone by the end, and never ingested. The uncorrected bias. */
-  stopped_trading_absent_from_db: number;
-  db_symbols: number;
-  db_symbols_trading_at_archive_start: number;
-  db_symbols_not_yet_listed_at_archive_start: number;
-  db_symbols_not_yet_listed_examples: Record<string, string>;
-  examples_of_excluded_names: string[];
-  backtest_months_gated: number;
-  backtest_months_ungated: number;
-  backtest_months_gated_pct: number;
-  interpretation: string;
+  stopped_trading_absent_from_db?: number;
+  db_symbols?: number;
+  db_symbols_trading_at_archive_start?: number;
+  db_symbols_not_yet_listed_at_archive_start?: number;
+  db_symbols_not_yet_listed_examples?: Record<string, string>;
+  examples_of_excluded_names?: string[];
+  backtest_months_gated?: number;
+  backtest_months_ungated?: number;
+  backtest_months_gated_pct?: number;
+  interpretation?: string;
 }
 
 /** Factor names as used by the forward-outlook payload. */
@@ -822,8 +851,8 @@ export interface ExperimentManifest {
     article_count: number;
     content_sha256: string;
   } | null;
-  /** "fetched-live" or "replayed". Reported, never inferred. */
-  news_mode: "fetched-live" | "replayed" | null;
+  /** Fetch mode is recorded by the pipeline, never inferred from snapshot presence. */
+  news_mode: "fetched-live" | "replayed" | "fetch-failed" | "not_used" | null;
   data_freshness: DataFreshness | null;
   determinism: ManifestDeterminism[];
   caveats: ManifestCaveat[];
@@ -921,7 +950,4 @@ export interface EodRefreshStatus {
   started_at: string | null;
   finished_at: string | null;
 }
-
-
-
 

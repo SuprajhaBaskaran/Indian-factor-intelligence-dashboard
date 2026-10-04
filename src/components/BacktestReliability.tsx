@@ -42,18 +42,20 @@ export function BacktestReliability() {
 
   const { risk_free_assumption: rf, return_path: rp, risk_adjusted: ra } =
     report;
-  const vb = report.vs_benchmark;
+  const rawBenchmark = report.vs_benchmark;
+  const vb = "benchmark" in rawBenchmark ? rawBenchmark : null;
   const sb = report.selection_bias;
-  const mt = report.mean_return_test;
+  const rawMeanTest = report.mean_return_test;
+  const mt = "t_stat" in rawMeanTest ? rawMeanTest : null;
   const ci = report.confidence_intervals ?? {};
-  const sharpeCI = ci.sharpe;
-  const cagrCI = ci.cagr;
+  const sharpeCI = ci.sharpe && "ci_low" in ci.sharpe ? ci.sharpe : null;
+  const cagrCI = ci.cagr && "ci_low" in ci.cagr ? ci.cagr : null;
   const roll = report.rolling_36m;
 
   // A Newey-West t below 1.96 means the average month is not distinguishable
   // from zero. Stating the threshold next to the number keeps the reader from
   // having to remember it.
-  const tSignificant = Math.abs(mt.t_stat) >= 1.96;
+  const tSignificant = mt ? Math.abs(mt.t_stat) >= 1.96 : false;
 
   return (
     <div className="space-y-4">
@@ -144,7 +146,7 @@ export function BacktestReliability() {
       </div>
 
       {/* Does the average month beat zero, once autocorrelation is allowed? */}
-      <Card
+      {mt ? <Card
         title="Is the average month distinguishable from zero?"
         subtitle="Newey-West HAC t-statistic on the mean monthly return"
       >
@@ -163,9 +165,9 @@ export function BacktestReliability() {
           />
           <StatCard
             label="Lag-1 autocorrelation"
-            value={mt.lag1_autocorrelation.toFixed(2)}
+            value={mt.lag1_autocorrelation == null ? "—" : mt.lag1_autocorrelation.toFixed(2)}
             subvalue="positive: losses cluster"
-            color={mt.lag1_autocorrelation > 0.1 ? "amber" : "slate"}
+            color={(mt.lag1_autocorrelation ?? 0) > 0.1 ? "amber" : "slate"}
           />
           <StatCard
             label="HAC lags"
@@ -175,16 +177,14 @@ export function BacktestReliability() {
           />
         </div>
         <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-          {mt.interpretation} Monthly portfolio returns are not independent: a
-          drawdown drives the following month&apos;s decisions, so the ordinary
-          t-statistic understates the standard error. A lag-1 autocorrelation
-          of {mt.lag1_autocorrelation.toFixed(2)} is mild but real, and the
-          correction widens the interval rather than flattering it.
+          {mt.interpretation}
         </p>
-      </Card>
+      </Card> : <Card title="Mean return test unavailable" subtitle="The full return path is incomplete">
+        <p className="text-sm leading-6 text-slate-600">The report withheld this test because a continuous return path cannot be established. No test statistic is inferred from the evaluated periods.</p>
+      </Card>}
 
       {/* Was the Sharpe selected, or fixed in advance? */}
-      {sb && sb.observed_sharpe !== undefined && (
+      {sb && "observed_sharpe" in sb && (
         <Card
           title="Was this Sharpe chosen, or found?"
           subtitle="Best of how many configurations, against what luck would produce"
@@ -322,7 +322,7 @@ export function BacktestReliability() {
       </Card>
 
       {/* What the book actually is, relative to the index. */}
-      <Card
+      {vb ? <Card
         title={`Against ${vb.benchmark}`}
         subtitle={`Aligned to the ${vb.observations} months the stock-level book was actually live`}
       >
@@ -362,7 +362,9 @@ export function BacktestReliability() {
         <p className="text-xs text-slate-500 mt-3 leading-relaxed">
           {vb.interpretation}
         </p>
-      </Card>
+      </Card> : <Card title="Full-period benchmark comparison unavailable" subtitle="Incomplete return path">
+        <p className="text-sm leading-6 text-slate-600">The benchmark comparison is withheld because omitted periods prevent a complete aligned path. Evaluated-period statistics do not establish full-period outperformance.</p>
+      </Card>}
 
       {/* The tail, which a mean and a Sharpe both hide. */}
       <Card
@@ -384,7 +386,7 @@ export function BacktestReliability() {
           />
           <StatCard
             label="Longest drawdown"
-            value={`${rp.longest_drawdown_months} mo`}
+            value={rp.longest_drawdown_months == null ? "Unavailable" : `${rp.longest_drawdown_months} mo`}
             subvalue="consecutive months under water"
             color="amber"
           />
@@ -418,8 +420,12 @@ export function BacktestReliability() {
       </Card>
 
       {/* Cost sensitivity. */}
-      {costs && (
-        <Card
+        {costs?.available === false ? (
+          <Card title="Cost sensitivity unavailable" subtitle="Incomplete return path">
+            <p className="text-sm leading-6 text-slate-600">Full-path cost scenarios are withheld because {costs.omitted_periods?.length ?? "some"} periods are omitted. No full-period CAGR impact is inferred from the evaluated periods.</p>
+          </Card>
+        ) : costs?.scenarios ? (
+          <Card
           title="Cost sensitivity"
           subtitle="The book re-run end to end at each turnover cost"
         >
@@ -455,14 +461,10 @@ export function BacktestReliability() {
             }))}
           />
           <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-            {costs.interpretation} Across the full range the CAGR moves from{" "}
-            {formatPercent(costs.gross_cagr ?? 0)} at zero cost to{" "}
-            {formatPercent(costs.stress_cagr)} at {costs.stress_bps} bps — a loss
-            of {costs.cagr_lost_to_costs_pct?.toFixed(2)} points, so the result
-            is not an artefact of a favourable cost assumption.
+            {costs.interpretation}
           </p>
         </Card>
-      )}
+        ) : null}
 
       {/* Whether the result survives being cut into three-year pieces. */}
       {roll?.available && (
