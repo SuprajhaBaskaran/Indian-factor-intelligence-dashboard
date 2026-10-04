@@ -13,7 +13,7 @@ import { AdminStatusPage } from "@/pages/AdminStatusPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
 import { loadDashboardData } from "@/lib/data";
 import { logBackendStatus } from "@/lib/supabase";
-import { readUserExperience } from "@/lib/userExperience";
+import { readUserExperienceFromAccount } from "@/lib/userExperience";
 
 const pathFor: Record<PageId, string> = {
   "command-center": "/",
@@ -72,7 +72,19 @@ function AppInner() {
   }, []);
 
   useEffect(() => {
-    setNeedsOnboarding(Boolean(user && !isAdmin && !readUserExperience(user.id)));
+    let active = true;
+    if (!user || isAdmin) {
+      setNeedsOnboarding(false);
+      return () => { active = false; };
+    }
+    readUserExperienceFromAccount(user.id)
+      .then((experience) => {
+        if (active) setNeedsOnboarding(!experience);
+      })
+      .catch(() => {
+        if (active) setNeedsOnboarding(true);
+      });
+    return () => { active = false; };
   }, [isAdmin, user?.id]);
 
   useEffect(() => {

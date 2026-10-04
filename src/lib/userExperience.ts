@@ -1,3 +1,5 @@
+import { isSupabaseConfigured, supabase } from "./supabase";
+
 export type RiskPreference = "conservative" | "moderate" | "aggressive";
 
 export interface UserExperience {
@@ -34,6 +36,50 @@ export function readUserExperience(userId: string): UserExperience | null {
 export function saveUserExperience(userId: string, experience: UserExperience) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(storageKey(userId), JSON.stringify(experience));
+}
+
+function normalizeRiskPreference(value: unknown): RiskPreference {
+  return value === "conservative" || value === "aggressive" ? value : "moderate";
+}
+
+export async function readUserExperienceFromAccount(userId: string): Promise<UserExperience | null> {
+  const localExperience = readUserExperience(userId);
+  if (localExperience) return localExperience;
+  if (!supabase || !isSupabaseConfigured) return null;
+
+  const { data: preferences, error: preferencesError } = await supabase
+    .from("user_preferences")
+    .select("preferred_capital, risk_preference")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (preferencesError || !preferences) return null;
+
+  const { data: portfolio } = await supabase
+    .from("portfolios")
+    .select("id")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+
+  let hasInvestments = false;
+  if (portfolio?.id) {
+    const { count } = await supabase
+      .from("portfolio_holdings")
+      .select("symbol", { count: "exact", head: true })
+      .eq("portfolio_id", portfolio.id);
+    hasInvestments = Boolean(count && count > 0);
+  }
+
+  const freshMoneyAmount = preferences.preferred_capital ? Number(preferences.preferred_capital) : 0;
+  const experience: UserExperience = {
+    hasInvestments,
+    freshMoneyAmount: Number.isFinite(freshMoneyAmount) && freshMoneyAmount > 0 ? freshMoneyAmount : 0,
+    freshMoneyPending: Number.isFinite(freshMoneyAmount) && freshMoneyAmount > 0,
+    riskPreference: normalizeRiskPreference(preferences.risk_preference),
+  };
+  saveUserExperience(userId, experience);
+  return experience;
 }
 
 export function getUserJourney(experience: UserExperience | null): UserJourney {
