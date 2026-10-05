@@ -70,6 +70,26 @@ def test_no_silently_null_export_columns():
             k for k in rows[0]
             if k not in allowed and all(r.get(k) is None for r in rows)
         ]
+        if fname == "backtest_stock_level.json" and dead == ["portfolio_value", "drawdown"]:
+            assert all(
+                r.get("path_availability", {}).get("reason") == "incomplete_return_path"
+                for r in rows
+            ), "null stock-level path values must carry the incomplete_return_path reason"
+            continue
+        if fname == "backtest_portfolio.json" and set(dead) == {"portfolio_value", "drawdown"}:
+            assert all(
+                r.get("path_availability", {}).get("reason") == "incomplete_return_path"
+                for r in rows
+            ), "null portfolio curves must carry the incomplete_return_path reason"
+            continue
+        if fname == "backtest_summary.json" and set(dead) == {
+            "cagr", "total_return", "max_drawdown", "calmar"
+        }:
+            assert all(
+                r.get("performance_availability", {}).get("reason") == "incomplete_return_path"
+                for r in rows
+            ), "null full-path summary metrics must carry the incomplete_return_path reason"
+            continue
         if dead:
             offenders[fname] = dead
     assert not offenders, (
@@ -155,6 +175,27 @@ def test_backtest_metrics_match_their_own_return_series():
     bp = _rows("backtest_portfolio")
     summaries = {s["strategy_name"]: s for s in _rows("backtest_summary")}
     assert bp and summaries
+    incomplete = any(
+        s.get("performance_availability", {}).get("reason") == "incomplete_return_path"
+        for s in summaries.values()
+    )
+    if incomplete:
+        assert all(
+            s.get("cagr") is None
+            and s.get("total_return") is None
+            and s.get("max_drawdown") is None
+            and s.get("calmar") is None
+            and s.get("statistics_scope") == "evaluated_periods_only"
+            for s in summaries.values()
+        ), "incomplete authoritative path must withhold continuous-path summary metrics"
+        assert all(
+            r.get("portfolio_value") is None
+            and r.get("drawdown") is None
+            and r.get("path_availability", {}).get("reason") == "incomplete_return_path"
+            and r.get("monthly_return") is not None
+            for r in bp
+        ), "monthly observations may remain, but compounded curves must be unavailable"
+        return
     by = defaultdict(list)
     for r in bp:
         by[r["strategy_name"]].append(r["monthly_return"])
