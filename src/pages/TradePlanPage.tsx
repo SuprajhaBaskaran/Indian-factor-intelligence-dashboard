@@ -105,11 +105,13 @@ function getFreshPlanTone(action: string): { title: string; detail: string; colo
 function HoldingSymbolInput({
   value,
   options,
+  placeholder = "Search stock",
   onChange,
   onSelect,
 }: {
   value: string;
   options: HoldingSymbolOption[];
+  placeholder?: string;
   onChange: (value: string) => void;
   onSelect: (symbol: string) => void;
 }) {
@@ -168,7 +170,7 @@ function HoldingSymbolInput({
           }
         }}
         className="w-full rounded-md border border-slate-300 py-2 pl-8 pr-2 text-sm font-semibold uppercase outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-        placeholder="Search stock"
+        placeholder={placeholder}
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
@@ -257,6 +259,15 @@ export function TradePlanPage() {
   const cashPlan = buildCashDeploymentPlan(cash, [], minimumTradeValue);
   const targets = getPortfolioTargets();
   const stocks = getStocks();
+  const modelExampleSymbols = useMemo(() => {
+    return [...targets]
+      .sort((a, b) => b.target_weight - a.target_weight)
+      .map((target) => target.symbol)
+      .slice(0, 4);
+  }, [targets]);
+  const modelExampleText = modelExampleSymbols.length > 0
+    ? modelExampleSymbols.join(", ")
+    : "RELIANCE, TCS, INFY";
   const stockSymbols = getStockSymbols();
   const nifty500Audit = getNifty500DataAudit();
   const holdingSymbolOptions = useMemo(() => {
@@ -702,14 +713,14 @@ export function TradePlanPage() {
                 <div className="rounded-xl border border-slate-200 bg-white">
                   <div className="border-b border-slate-100 px-4 py-3">
                     <p className="text-sm font-semibold text-slate-900">Paste holdings</p>
-                    <p className="mt-1 text-xs text-slate-500">One row per stock, for example RELIANCE,3,2850</p>
+                    <p className="mt-1 text-xs text-slate-500">One row per stock. Try current Nifty 200 model names like {modelExampleText}.</p>
                   </div>
                   <div className="p-4">
                     <textarea
                       value={bulkEntryText}
                       onChange={(event) => setBulkEntryText(event.target.value)}
                       className="h-24 w-full rounded-lg border border-slate-300 p-3 font-mono text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      placeholder={"RELIANCE,3,2850\nTCS,2,3900\nINFY,5,1500"}
+                      placeholder={`${modelExampleSymbols[0] || "RELIANCE"},3,2850\n${modelExampleSymbols[1] || "TCS"},2,3900\n${modelExampleSymbols[2] || "INFY"},5,1500`}
                     />
                     <button
                       onClick={loadBulkHoldings}
@@ -785,7 +796,7 @@ export function TradePlanPage() {
               <div className={`rounded-xl border border-slate-200 bg-white ${holdingEntryMode === "manual" ? "" : "hidden"}`}>
                 <div className="border-b border-slate-100 px-4 py-3">
                   <p className="text-sm font-semibold text-slate-900">Edit holdings</p>
-                  <p className="mt-1 text-xs text-slate-500">Start typing a symbol or company name. Examples: RELIANCE, TCS, INFY, HDFCBANK.</p>
+                  <p className="mt-1 text-xs text-slate-500">Start typing a symbol or company name. Current Nifty 200 model examples: {modelExampleText}.</p>
                 </div>
                 <div className="overflow-visible">
                   <table className="w-full min-w-[380px] text-sm">
@@ -803,6 +814,7 @@ export function TradePlanPage() {
                           <td className="px-3 py-2">
                             <HoldingSymbolInput
                               value={row.symbol}
+                              placeholder={`Try ${modelExampleSymbols[index % Math.max(1, modelExampleSymbols.length)] || "RELIANCE"}`}
                               onChange={(value) => updateManualRow(index, { symbol: value })}
                               onSelect={(symbol) => updateManualRow(index, { symbol })}
                               options={holdingSymbolOptions}
@@ -1004,7 +1016,7 @@ export function TradePlanPage() {
                       value={customStockQuery}
                       onChange={(event) => setCustomStockQuery(event.target.value.toUpperCase())}
                       className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-sm font-semibold uppercase outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      placeholder="Type RELIANCE, TCS, JSW..."
+                      placeholder={`Try Nifty 200 model stocks: ${modelExampleText}`}
                     />
                   </label>
                   {customSuggestions.length > 0 && normalizedCustomQuery !== customSuggestions[0]?.symbol && (
@@ -1092,7 +1104,7 @@ export function TradePlanPage() {
                         value={customStockQuery}
                         onChange={(event) => setCustomStockQuery(event.target.value.toUpperCase())}
                         className="w-full rounded-lg border border-slate-300 py-3 pl-9 pr-3 text-sm font-semibold uppercase outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                        placeholder="Type RELIANCE, TCS, INFY..."
+                        placeholder={`Try Nifty 200 model stocks: ${modelExampleText}`}
                       />
                     </div>
                   </label>

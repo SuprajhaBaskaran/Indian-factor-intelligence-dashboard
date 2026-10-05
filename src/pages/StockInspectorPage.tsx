@@ -68,6 +68,10 @@ export function StockInspectorPage() {
   const selectedSearchStock = stockSearchRows.find((item) => item.symbol === normalized);
   const recommendationUniverse = recommendationUniverses?.universes[recommendationMode] || null;
   const recommendationRows = recommendationUniverse?.rows.slice(0, recommendationMode === "nifty200" ? 60 : 100) || [];
+  const nifty200Examples = recommendationUniverses?.universes.nifty200.rows
+    .slice(0, 4)
+    .map((item) => item.symbol)
+    .join(", ") || "RELIANCE, TCS, INFY";
   const selectedCandidate = recommendationUniverses?.universes.nifty500.rows.find((item) => item.symbol === normalized);
   const signals = useMemo(() => getSignalEvents(normalized).slice(-20).reverse(), [normalized]);
   const prices = getStockPrices(normalized);
@@ -209,7 +213,7 @@ export function StockInspectorPage() {
         )}
       </Card>
 
-      <Card title="Search Stocks" subtitle={`${stockSearchRows.length} stocks loaded. Type a symbol, company, or sector; press Enter to open the first match.`}>
+      <Card title="Search Stocks" subtitle={`${stockSearchRows.length} stocks loaded. Try Nifty 200 model names such as ${nifty200Examples}; press Enter to open the first match.`}>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
@@ -220,7 +224,7 @@ export function StockInspectorPage() {
             onChange={(event) => setSearch(event.target.value)}
             onKeyDown={(event) => { if (event.key === "Enter" && searchResults[0]) { event.preventDefault(); setSymbol(searchResults[0].symbol); setSearch(searchResults[0].symbol); } }}
             className="w-full rounded-lg border border-slate-300 py-3 pl-9 pr-3 text-sm font-semibold uppercase outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            placeholder="Search symbol, company, or sector"
+            placeholder={`Try Nifty 200: ${nifty200Examples}`}
           />
         </div>
         <div id="stock-search-options" role="listbox" className="mt-4 grid max-h-[360px] gap-2 overflow-auto pr-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
