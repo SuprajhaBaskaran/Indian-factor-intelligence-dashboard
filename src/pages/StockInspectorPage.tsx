@@ -29,13 +29,10 @@ export function StockInspectorPage() {
   const signals = useMemo(() => getSignalEvents(normalized).slice(-20).reverse(), [normalized]);
   const prices = getStockPrices(normalized);
   const latestPricePoint = prices[prices.length - 1];
-  const latestSignalPrice = signals.find((signal) => Number(signal.signal_price) > 0)?.signal_price || 0;
-  const latestPrice = latestPricePoint?.adjusted_close || latestPricePoint?.close || row?.latestPrice || latestSignalPrice || 0;
+  const latestPrice = latestPricePoint?.adjusted_close || latestPricePoint?.close || row?.latestPrice || 0;
   const priceSource = latestPricePoint
-    ? `monthly price file${latestPricePoint.month ? ` · ${latestPricePoint.month}` : ""}`
-    : latestSignalPrice > 0
-      ? "latest model signal price"
-      : "";
+    ? `monthly stock price · ${latestPricePoint.month}`
+    : "";
   const hasPortfolioContext = holdings.length > 0 || cash > 0;
   const currentModelWeight = row?.targetWeight || signals[0]?.new_weight || 0;
   const latestSignal = signals[0]?.signal_type || (currentModelWeight > 0 ? "IN MODEL" : "WATCH");
