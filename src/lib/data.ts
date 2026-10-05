@@ -38,6 +38,7 @@ import type {
   PointInTimeSurvivorship,
   HistoricalUniverseResolution,
   ForwardOutlook,
+  Nifty500DataAudit,
 } from "@/types";
 import { REGIME_LABELS } from "@/types";
 
@@ -90,6 +91,7 @@ let pointInTime: PointInTimeSurvivorship | null = null;
 let historicalUniverseResolution: Record<string, HistoricalUniverseResolution> = {};
 let forwardOutlook: ForwardOutlook | null = null;
 let stockLevelSummary: Record<string, unknown> | null = null;
+let nifty500Audit: Nifty500DataAudit | null = null;
 let dashboardDataLoaded = false;
 
 const DATA_BASE = "/data";
@@ -152,6 +154,7 @@ export async function loadDashboardData(): Promise<void> {
     historicalUniverseResolutionJson,
     forwardOutlookJson,
     stockLevelSummaryJson,
+    nifty500AuditJson,
   ] = await Promise.all([
     fetchDataFile<RegimePrediction[]>("regime_predictions"),
     fetchDataFile<FactorBasketEntry[]>("factor_baskets"),
@@ -189,6 +192,7 @@ export async function loadDashboardData(): Promise<void> {
     fetchOptionalDataFile<Record<string, HistoricalUniverseResolution>>("historical_universe_resolution"),
     fetchOptionalDataFile<ForwardOutlook>("forward_outlook"),
     fetchOptionalDataFile<Record<string, unknown>>("backtest_stock_level_summary"),
+    fetchOptionalDataFile<Nifty500DataAudit>("nifty500_data_audit"),
   ]);
 
   regimes = regimesJson;
@@ -223,6 +227,7 @@ export async function loadDashboardData(): Promise<void> {
   historicalUniverseResolution = historicalUniverseResolutionJson || {};
   forwardOutlook = forwardOutlookJson;
   stockLevelSummary = stockLevelSummaryJson;
+  nifty500Audit = nifty500AuditJson;
   dashboardDataLoaded = true;
 }
 
@@ -339,6 +344,10 @@ export function getStockSymbols(): string[] {
 
 export function getStocks(): StockMeta[] {
   return stocks;
+}
+
+export function getNifty500DataAudit(): Nifty500DataAudit | null {
+  return nifty500Audit;
 }
 
 export function getBacktestPortfolio(): BacktestPortfolioPoint[] {
@@ -718,5 +727,4 @@ export function formatNumber(v: number | null | undefined, digits = 2): string {
   if (v === null || v === undefined || isNaN(v)) return "—";
   return v.toFixed(digits);
 }
-
 

@@ -401,6 +401,64 @@ export interface HistoricalUniverseResolution {
   unresolved_symbols: string[];
 }
 
+export interface Nifty500AuditRow {
+  companyName: string;
+  industry: string;
+  symbol: string;
+  rawSymbol: string;
+  series: string;
+  isin: string;
+  inCurrentSelectedModelBasket: boolean;
+  hasStockMetadata: boolean;
+  hasAnyModelTarget: boolean;
+  hasFactorBasketHistory: boolean;
+  hasMonthlyPrice: boolean;
+  priceIdentifier: "symbol" | "isin" | null;
+  priceMonthCount: number;
+  firstPriceMonth: string | null;
+  lastPriceMonth: string | null;
+  latestClose: number | null;
+  priceCoverageBand: "missing" | "thin" | "usable" | "strong";
+}
+
+export interface Nifty500DataAudit {
+  summary: {
+    candidateIndex: string;
+    auditDate: string;
+    sourceFile: string;
+    officialConstituentRows: number;
+    currentSystemIndex: string;
+    currentSystemIndexSize: number;
+    currentModelMonth: string;
+    currentSelectedModelBasketSymbols: number;
+    overlapWithCurrentSelectedModelBasket: number;
+    incrementalSymbolsVsCurrentSelectedModelBasket: number;
+    stockMetadataCoverage: number;
+    monthlyPriceCoverage: number;
+    symbolKeyedMonthlyPriceCoverage: number;
+    isinKeyedMonthlyPriceCoverage: number;
+    strongPriceCoverage: number;
+    usableOrStrongPriceCoverage: number;
+    factorBasketHistoryCoverage: number;
+    modelTargetHistoryCoverage: number;
+    fundamentalsRowsAvailable: number;
+    historicalPointInTimeUniverse: {
+      currentStatus: string;
+      existingPointInTimeUniverse: string;
+      warning: string;
+    };
+    readiness: {
+      currentDiscovery: "ready" | "partial" | "blocked";
+      modelBacktest: "ready" | "partial" | "blocked";
+      reason: string;
+    };
+    nextSteps: string[];
+  };
+  sectorCounts: Record<string, number>;
+  missingSamples: Record<string, string[]>;
+  rows: Nifty500AuditRow[];
+}
+
 /**
  * One rung of the cost ladder. The book is re-run end to end at each cost
  * level, because turnover depends on the weights, not just on the base case.
@@ -950,4 +1008,3 @@ export interface EodRefreshStatus {
   started_at: string | null;
   finished_at: string | null;
 }
-
