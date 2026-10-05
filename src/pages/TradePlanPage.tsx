@@ -447,10 +447,21 @@ export function TradePlanPage() {
       reason: row.reason,
     })) : [], [filter, hasHoldings, preview.rows]);
 
-  const handleSave = async () => {
+  const handleSave = async (addFreshBuysToHoldings = false) => {
     setSaveMessage("");
     try {
-      await Promise.all([userData.saveHoldings(holdings as PersistedHolding[]), userData.saveCash(cash)]);
+      const freshBuyHoldings = cashPlan.rows.map((row) => ({
+        symbol: row.symbol,
+        quantity: row.quantity,
+        avgPrice: Number(row.latestPrice.toFixed(2)),
+      }));
+      const shouldAddFreshBuys = mode === "fresh" && addFreshBuysToHoldings && freshBuyHoldings.length > 0;
+      const holdingsToSave = shouldAddFreshBuys ? freshBuyHoldings : holdings;
+      const cashToSave = shouldAddFreshBuys ? cashPlan.cashLeft : cash;
+      const holdingsTextToSave = holdingsToText(holdingsToSave);
+      const cashTextToSave = String(Number(cashToSave.toFixed(2)));
+
+      await Promise.all([userData.saveHoldings(holdingsToSave as PersistedHolding[]), userData.saveCash(cashToSave)]);
       const snapshot = getDecisionSnapshot();
       const planItems = mode === "fresh"
         ? cashPlan.rows.map((row) => ({
@@ -477,8 +488,18 @@ export function TradePlanPage() {
         items: planItems,
       });
       if (user?.id && pendingFreshMoney > 0) markFreshMoneyIncluded(user.id);
-      setSavedInput({ holdings: holdingsToText(holdings), cash: cashText });
-      setSaveMessage(mode === "fresh" ? "Your investment amount and draft plan were saved to your account." : "Your holdings, cash, and draft plan were saved to your account.");
+      setHoldingsText(holdingsTextToSave);
+      setCashText(cashTextToSave);
+      setSavedInput({ holdings: holdingsTextToSave, cash: cashTextToSave });
+      if (shouldAddFreshBuys) {
+        setMode("rebalance");
+        setHoldingEntryMode("manual");
+      }
+      setSaveMessage(shouldAddFreshBuys
+        ? "Your plan was saved and the suggested buys were added to your holdings. You can edit fill prices anytime."
+        : mode === "fresh"
+          ? "Your investment amount and draft plan were saved to your account."
+          : "Your holdings, cash, and draft plan were saved to your account.");
     } catch (error) {
       setSaveMessage(error instanceof Error ? error.message : "Could not save your plan. Please try again.");
     }
@@ -690,7 +711,7 @@ export function TradePlanPage() {
               </button>
               {recommendationGenerated && (
                 <button
-                  onClick={handleSave}
+                  onClick={() => handleSave()}
                   className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   Save this draft plan
@@ -906,7 +927,7 @@ export function TradePlanPage() {
               )}
 
               <button
-                onClick={handleSave}
+                onClick={() => handleSave()}
                 disabled={holdingIssues.length > 0}
                 className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
@@ -1010,6 +1031,28 @@ export function TradePlanPage() {
                     <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
                     Prices move during the day. Use the buy zone as a limit area. If the stock trades above the zone, wait or re-check; do not chase just because the table had a lower reference price.
                   </div>
+                  <div className="mt-5 grid gap-3 md:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => handleSave()}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      <FileText className="h-4 w-4" />
+                      Save draft only
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSave(true)}
+                      disabled={cashPlan.rows.length === 0}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    >
+                      <Wallet className="h-4 w-4" />
+                      Save plan and add to holdings
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                    Use the holdings option after you have bought the shown quantities; it saves those stocks, average prices, and leftover cash to your portfolio.
+                  </p>
                 </div>
                 {cashPlan.rows.length > 0 && (
                   <div className="mt-4 space-y-4">
