@@ -332,7 +332,8 @@ export function getSignalEvents(symbol?: string): StockSignalEvent[] {
 }
 
 export function getStockPrices(symbol: string): StockPricePoint[] {
-  return stockPrices.filter((p) => p.symbol === symbol);
+  const normalized = symbol.replace(/-/g, "").toUpperCase();
+  return stockPrices.filter((p) => p.symbol.replace(/-/g, "").toUpperCase() === normalized);
 }
 
 export function getStockSymbols(): string[] {
@@ -727,4 +728,3 @@ export function formatNumber(v: number | null | undefined, digits = 2): string {
   if (v === null || v === undefined || isNaN(v)) return "—";
   return v.toFixed(digits);
 }
-

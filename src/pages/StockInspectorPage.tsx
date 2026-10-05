@@ -7,6 +7,14 @@ import { buildTradePlan, formatCurrency } from "@/lib/product";
 import { useUserData } from "@/lib/userData";
 import type { StockPricePoint, StockSignalEvent } from "@/types";
 
+type StockSearchRow = {
+  symbol: string;
+  name: string;
+  sector: string;
+  source: "recommendation" | "research";
+  hasPriceData: boolean;
+};
+
 export function StockInspectorPage() {
   const userData = useUserData();
   const [holdings, setHoldings] = useState<{symbol:string;quantity:number;avgPrice?:number}[]>([]);
@@ -27,23 +35,25 @@ export function StockInspectorPage() {
   const [symbol, setSymbol] = useState(symbols.includes("PFC") ? "PFC" : symbols[0] || "");
   const [search, setSearch] = useState(symbol);
   const normalized = symbol.trim().toUpperCase();
+  const priceCoveredSymbols = useMemo(() => new Set(symbols.map((item) => item.replace(/-/g, "").toUpperCase())), [symbols]);
   const stockSearchRows = useMemo(() => {
-    const bySymbol = new Map<string, { symbol: string; name: string; sector: string; source: "trade-plan" | "watchlist" }>();
+    const bySymbol = new Map<string, StockSearchRow>();
     stockNames
       .filter((stock) => symbols.includes(stock.symbol))
-      .forEach((stock) => bySymbol.set(stock.symbol, { ...stock, source: "trade-plan" }));
+      .forEach((stock) => bySymbol.set(stock.symbol, { ...stock, source: "recommendation", hasPriceData: true }));
     nifty500Rows.forEach((row) => {
       if (!bySymbol.has(row.symbol)) {
         bySymbol.set(row.symbol, {
           symbol: row.symbol,
           name: row.companyName,
           sector: row.industry,
-          source: "watchlist",
+          source: "research",
+          hasPriceData: row.hasMonthlyPrice || priceCoveredSymbols.has(row.symbol),
         });
       }
     });
     return Array.from(bySymbol.values()).sort((a, b) => a.symbol.localeCompare(b.symbol));
-  }, [nifty500Rows, stockNames, symbols]);
+  }, [nifty500Rows, priceCoveredSymbols, stockNames, symbols]);
   const query = search.trim().toLowerCase();
   const searchResults = query
     ? stockSearchRows
@@ -57,17 +67,25 @@ export function StockInspectorPage() {
   const signals = useMemo(() => getSignalEvents(normalized).slice(-20).reverse(), [normalized]);
   const prices = getStockPrices(normalized);
   const latestPricePoint = prices[prices.length - 1];
+  const hasVerifiedPriceHistory = prices.some((price) => Number(price.adjusted_close || price.close || 0) > 0);
   const latestPrice = latestPricePoint?.adjusted_close || latestPricePoint?.close || row?.latestPrice || discoveryRow?.latestClose || 0;
   const priceSource = latestPricePoint
     ? `Monthly price history, ${latestPricePoint.month}`
     : discoveryRow?.latestClose
-      ? `Watchlist audit price, ${discoveryRow.lastPriceMonth}`
+      ? `Research coverage price, ${discoveryRow.lastPriceMonth}`
     : selectedSearchStock
-      ? "Price history has not been loaded for this symbol yet"
+      ? "Price history will appear when the exchange file includes this symbol"
       : "Select a stock from search";
+  const stockReadiness = row
+    ? "trade-ready"
+    : discoveryRow?.hasMonthlyPrice || hasVerifiedPriceHistory
+      ? "research-only"
+      : discoveryRow
+        ? "needs-data"
+        : "not-loaded";
   const hasPortfolioContext = holdings.length > 0 || cash > 0;
   const currentModelWeight = row?.targetWeight || signals[0]?.new_weight || 0;
-  const latestSignal = signals[0]?.signal_type || (currentModelWeight > 0 ? "IN MODEL" : "WATCH");
+  const latestSignal = row ? signals[0]?.signal_type || (currentModelWeight > 0 ? "IN MODEL" : "HOLD") : stockReadiness === "needs-data" ? "LIMITED" : "NOT SELECTED";
   const actionText = row
     ? row.finalTradeQuantity > 0
       ? `Buy ${row.finalTradeQuantity}`
@@ -76,28 +94,30 @@ export function StockInspectorPage() {
         : hasPortfolioContext
           ? "No trade now"
           : "Add cash or holdings"
-    : "Watch only";
+    : stockReadiness === "needs-data" ? "Limited coverage" : "No model action";
   const actionTone = row?.finalTradeQuantity && row.finalTradeQuantity !== 0 ? "blue" : row ? "slate" : "amber";
   const actionExplanation = row
     ? !hasPortfolioContext
       ? "You have no saved holdings or plan cash yet, so this page can show the model view but cannot calculate your personal quantity."
       : row.reason
-    : "This stock is searchable for research, but it is not in the current recommendation set. Do not force a buy from this page.";
+    : stockReadiness === "needs-data"
+      ? "This stock is present in the broader exchange list, but the local price file does not include enough history yet for a chart or action."
+      : "This stock has real price history for research, but the current monthly model has not selected it for a buy/sell action.";
 
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-5 overflow-x-hidden">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-900">Stocks</h2>
-          <p className="mt-1 text-sm text-slate-500">Search the loaded stock universe and see whether it is actionable, watch-only, or missing price coverage.</p>
+          <p className="mt-1 text-sm text-slate-500">Search the Nifty 500, view real price history, and see when the model has an actual action.</p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
-          <Badge color="blue">Recommendation set</Badge>
-          <Badge color="amber">Watchlist universe</Badge>
+          <Badge color="blue">Model action</Badge>
+          <Badge color="green">Price history</Badge>
         </div>
       </div>
 
-      <Card title="Find Stock" subtitle={`${stockSearchRows.length} stocks loaded. Type to filter, or press Enter to open the first match.`}>
+      <Card title="Search Stocks" subtitle={`${stockSearchRows.length} stocks loaded. Type a symbol, company, or sector; press Enter to open the first match.`}>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
@@ -130,8 +150,8 @@ export function StockInspectorPage() {
                   <p className="font-bold text-slate-950">{stock.symbol}</p>
                   <p className="mt-0.5 truncate text-xs text-slate-500">{stock.name}</p>
                 </div>
-                <Badge color={stock.source === "trade-plan" ? "blue" : "amber"} size="xs">
-                  {stock.source === "trade-plan" ? "Plan" : "Watch"}
+                <Badge color={stock.source === "recommendation" ? "blue" : stock.hasPriceData ? "green" : "slate"} size="xs">
+                  {stock.source === "recommendation" ? "Model action" : stock.hasPriceData ? "Price history" : "Limited"}
                 </Badge>
               </div>
               <p className="mt-2 truncate text-xs text-slate-500">{stock.sector || "Sector unavailable"}</p>
@@ -144,8 +164,9 @@ export function StockInspectorPage() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-2xl font-bold text-slate-950">{normalized || "Select a stock"}</h3>
-                    {row && <Badge color="blue">Recommendation set</Badge>}
-                    {!row && discoveryRow && <Badge color="amber">Watchlist universe</Badge>}
+                    {row && <Badge color="blue">Model action</Badge>}
+                    {!row && stockReadiness === "research-only" && <Badge color="green">Price history</Badge>}
+                    {!row && stockReadiness === "needs-data" && <Badge color="slate">Limited</Badge>}
                     {!row && !discoveryRow && <Badge color="slate">Not loaded</Badge>}
                   </div>
                   <p className="mt-1 text-sm text-slate-500">
@@ -156,56 +177,67 @@ export function StockInspectorPage() {
                   </p>
                   {!row && discoveryRow && (
                     <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-                      This stock is available for search and research. It is not used for trade recommendations until the larger universe has full price, fundamental, membership, and backtest coverage.
+                      {stockReadiness === "needs-data"
+                        ? "This stock is present in the broader exchange list, but the local price file does not include enough history yet for a chart."
+                        : "Real monthly price history is available. The current monthly model has not selected this stock, so there is no buy/sell action right now."}
                     </p>
                   )}
                 </div>
                 <div className="rounded-xl bg-slate-50 px-4 py-3 lg:text-right">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reference price</p>
-                  <p className="mt-1 text-2xl font-bold text-slate-950">{latestPrice > 0 ? formatCurrency(latestPrice) : "No verified price"}</p>
+                  <p className="mt-1 text-2xl font-bold text-slate-950">{latestPrice > 0 ? formatCurrency(latestPrice) : "Not available"}</p>
                   <p className="mt-1 text-xs leading-5 text-slate-500">{priceSource}</p>
                 </div>
             </div>
             <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4">
-              <QuoteMetric label="Status" value={row ? "Actionable in plan" : discoveryRow ? "Research only" : "Not in dataset"} />
-              <QuoteMetric label="Target weight" value={row ? formatPercent(currentModelWeight, 2) : "No target"} />
+              <QuoteMetric label="Status" value={row ? "Model basket" : stockReadiness === "needs-data" ? "Limited coverage" : discoveryRow ? "Covered stock" : "Not in dataset"} />
+              <QuoteMetric label="Target weight" value={row ? formatPercent(currentModelWeight, 2) : "Not selected"} />
               <QuoteMetric label="Latest signal" value={latestSignal} />
               <QuoteMetric label="Your action" value={actionText} />
             </div>
           </section>
 
-      <Card title="Model Chart" subtitle="Real monthly prices with model action markers">
-        <ModelSignalChart symbol={normalized} prices={prices} signals={signals} />
-      </Card>
+      {hasVerifiedPriceHistory ? (
+        <Card title="Price Chart" subtitle="Real monthly prices with model action markers when available">
+          <ModelSignalChart symbol={normalized} prices={prices} signals={signals} />
+        </Card>
+      ) : (
+        <Card title="Price Chart" subtitle="Price history">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+            Price history is not available for {normalized || "this stock"} in the local exchange file.
+          </div>
+        </Card>
+      )}
 
           {holdingsLoading && <p role="status" className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">Loading saved holdings to calculate your portfolio relevance…</p>}
           {!holdingsLoading && holdingsError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">Saved holdings are unavailable. Personal trade sizing is hidden until the account data loads.</p>}
 
           {discoveryRow && !row && (
-        <Card title="Discovery Status" subtitle="Nifty 500 coverage check; not a recommendation">
+        <Card title="Model Coverage" subtitle="Why this stock has no personal action">
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <Badge color="amber">Nifty 500 discovery</Badge>
-                <Badge color={discoveryRow.hasMonthlyPrice ? "green" : "red"}>
-                  {discoveryRow.hasMonthlyPrice ? "Price data found" : "Price data missing"}
+                <Badge color={hasVerifiedPriceHistory ? "green" : "slate"}>
+                  {hasVerifiedPriceHistory ? "Price history loaded" : "Limited price history"}
                 </Badge>
                 <Badge color={discoveryRow.hasFactorBasketHistory ? "green" : "slate"}>
-                  {discoveryRow.hasFactorBasketHistory ? "Factor history found" : "No factor history"}
+                  {discoveryRow.hasFactorBasketHistory ? "Has model history" : "No model history yet"}
                 </Badge>
               </div>
               <p className="mt-4 text-sm leading-6 text-slate-700">
-                {discoveryRow.companyName} is in the current Nifty 500 file under {discoveryRow.industry}. It is available for discovery/watchlist context, but it is not in the current recommendation universe.
+                {discoveryRow.companyName} is in the Nifty 500 list under {discoveryRow.industry}.
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                The model stays on Nifty 200 until Nifty 500 historical membership, prices, fundamentals, and backtests are complete.
+                {hasVerifiedPriceHistory
+                  ? "The app can show its price chart now. A personal buy/sell action appears only when the monthly model selects the stock and your cash or holdings are saved."
+                  : "The current local exchange file does not include enough price history for this symbol."}
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Metric label="Price coverage" value={discoveryRow.priceCoverageBand} />
-              <Metric label="Price months" value={`${discoveryRow.priceMonthCount}`} />
-              <Metric label="Last price month" value={discoveryRow.lastPriceMonth || "Missing"} />
-              <Metric label="Latest close" value={discoveryRow.latestClose ? formatCurrency(discoveryRow.latestClose) : "Missing"} />
+              <Metric label="Price history" value={hasVerifiedPriceHistory ? "Available" : "Not loaded"} />
+              <Metric label="Months available" value={`${prices.length || discoveryRow.priceMonthCount}`} />
+              <Metric label="Last price month" value={latestPricePoint?.month || discoveryRow.lastPriceMonth || "Not available"} />
+              <Metric label="Latest close" value={latestPrice > 0 ? formatCurrency(latestPrice) : "Not available"} />
             </div>
           </div>
         </Card>
@@ -253,9 +285,9 @@ export function StockInspectorPage() {
         </Card>
       )}
 
-      <Card title="Signal History" subtitle="Monthly recommendation changes for the selected stock">
+      <Card title="Model Signal History" subtitle="Past monthly model changes for the selected stock">
         <div className="mb-4 grid gap-3 md:grid-cols-3">
-          <Readout label="Latest signal" value={latestSignal} detail="The most recent monthly change in the recommendation set." />
+          <Readout label="Latest signal" value={latestSignal} detail="The most recent monthly model action for this symbol." />
           <Readout label="Weights" value="Previous -> current" detail="These are strategy target weights, not the number of shares you own." />
           <Readout label="How to use it" value="Context first" detail="Your exact trade comes from Personal Action after cash and holdings are saved." />
         </div>
@@ -277,7 +309,7 @@ export function StockInspectorPage() {
             new: formatPercent(signal.new_weight, 2),
             factor: signal.primary_factor,
           }))}
-          emptyMessage="No monthly signal history is loaded for this symbol yet."
+          emptyMessage="No monthly model action has been recorded for this symbol. Use the price chart for research; action appears when the model selects it."
         />
       </Card>
     </div>
@@ -309,7 +341,7 @@ function ModelSignalChart({
   if (!priceRows.length) {
     return (
       <div className="flex min-h-[280px] items-center justify-center rounded-lg bg-slate-50 px-4 text-center text-sm leading-6 text-slate-500">
-        No verified monthly price history is loaded for {symbol || "this stock"} yet, so the app will not draw a chart.
+        Price history is not available for {symbol || "this stock"} in the local exchange file.
       </div>
     );
   }
