@@ -35,16 +35,25 @@ const navigation: { id: PageId; label: string; icon: typeof LayoutDashboard; adm
   { id: "admin-status", label: "Admin Status", icon: Settings, adminOnly: true },
 ];
 
+function compareIsoDate(left?: string | null, right?: string | null) {
+  if (!left || !right) return null;
+  return left.localeCompare(right);
+}
+
 export function Layout({ currentPage, onNavigate, isAdmin, children }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, signOut } = useAuth();
   const eod = getEodRefreshStatus();
   const freshness = getExperimentManifest()?.data_freshness;
-  const daysBehind = freshness?.eod.trading_days_behind;
+  const refreshComparison = compareIsoDate(eod.resolved_date, freshness?.eod.expected_date);
+  const refreshCoversExpected = refreshComparison !== null && refreshComparison >= 0;
+  const daysBehind = refreshCoversExpected ? 0 : freshness?.eod.trading_days_behind;
   const freshnessText = eod.resolved_date
-    ? `Latest data ${eod.resolved_date}${daysBehind && daysBehind > 0 ? ` · ${daysBehind} trading day${daysBehind === 1 ? "" : "s"} behind` : ""}`
-    : "Latest data unavailable";
-  const dataCurrent = freshness?.status === "current" || (!freshness && eod.status === "ok");
+    ? daysBehind && daysBehind > 0
+      ? `Latest close ${eod.resolved_date} · ${daysBehind} market session${daysBehind === 1 ? "" : "s"} behind`
+      : `Latest close ${eod.resolved_date} · last completed session`
+    : "Latest close unavailable";
+  const dataCurrent = eod.status === "ok" && (!daysBehind || daysBehind <= 1);
   const items = navigation.filter((item) => !item.adminOnly || isAdmin);
   const go = (page: PageId) => {
     onNavigate(page);

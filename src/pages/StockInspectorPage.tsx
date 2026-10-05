@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Layers, Search, TrendingUp } from "lucide-react";
 import { Badge, Card, SignalBadge, Table } from "@/components/UI";
 import { TermTooltip } from "@/components/TermTooltip";
 import { formatPercent, getNifty500DataAudit, getSignalEvents, getStockPrices, getStockSymbols, getStocks } from "@/lib/data";
@@ -48,12 +49,15 @@ export function StockInspectorPage() {
   const discoveryRow = nifty500Rows.find((item) => item.symbol === normalized);
   const preview = buildTradePlan(holdings, cash);
   const row = preview.rows.find((item) => item.symbol === normalized);
+  const selectedSearchStock = stockSearchRows.find((item) => item.symbol === normalized);
   const signals = useMemo(() => getSignalEvents(normalized).slice(-20).reverse(), [normalized]);
   const prices = getStockPrices(normalized);
   const latestPricePoint = prices[prices.length - 1];
-  const latestPrice = latestPricePoint?.adjusted_close || latestPricePoint?.close || row?.latestPrice || 0;
+  const latestPrice = latestPricePoint?.adjusted_close || latestPricePoint?.close || row?.latestPrice || discoveryRow?.latestClose || 0;
   const priceSource = latestPricePoint
     ? `monthly stock price · ${latestPricePoint.month}`
+    : discoveryRow?.latestClose
+      ? `Nifty 500 audit price · ${discoveryRow.lastPriceMonth}`
     : "";
   const hasPortfolioContext = holdings.length > 0 || cash > 0;
   const currentModelWeight = row?.targetWeight || signals[0]?.new_weight || 0;
@@ -74,40 +78,113 @@ export function StockInspectorPage() {
     : "This stock is not in the current model target set. Use the signal history only as research context.";
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-slate-900">Stocks</h2>
-        <p className="mt-1 text-sm text-slate-500">What does the model currently say about this stock?</p>
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Stocks</h2>
+          <p className="mt-1 text-sm text-slate-500">Search, inspect, and understand whether a stock belongs in the current model or only in discovery.</p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs">
+          <Badge color="blue">Nifty 200 model</Badge>
+          <Badge color="amber">Nifty 500 discovery</Badge>
+        </div>
       </div>
 
-      <Card>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="flex-1 text-xs font-medium text-slate-600">
-            Search by symbol or company name
-            <input
-              role="combobox"
-              aria-expanded={search.trim().length > 0 && matches.length > 0}
-              aria-controls="stock-search-options"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              onKeyDown={(event) => { if (event.key === "Enter" && matches[0]) { event.preventDefault(); setSymbol(matches[0].symbol); setSearch(matches[0].symbol); } }}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-              placeholder="PFC"
-            />
-            {search.trim().length > 0 && matches.length > 0 && <div id="stock-search-options" role="listbox" className="mt-1 max-h-56 overflow-auto rounded-md border border-slate-200 bg-white shadow-sm">{matches.map((stock) => <button key={stock.symbol} type="button" role="option" aria-selected={normalized === stock.symbol} onClick={() => { setSymbol(stock.symbol); setSearch(stock.symbol); }} className="flex w-full justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-slate-50"><span className="font-medium text-slate-900">{stock.symbol}</span><span className="min-w-0 flex-1 truncate text-slate-500">{stock.name}</span>{stock.source === "nifty500" && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">N500</span>}</button>)}</div>}
-          </label>
-          <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
-            Price: <span className="font-semibold text-slate-900">{latestPrice > 0 ? formatCurrency(latestPrice) : "Unavailable"}</span>
-            {priceSource && <span className="ml-2 text-xs text-slate-500">{priceSource}</span>}
-          </div>
-        </div>
-      </Card>
+      <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <aside className="space-y-4">
+          <Card title="Find Stock" subtitle="Search like a watchlist">
+            <label className="block text-xs font-medium text-slate-600">
+              Symbol or company
+              <div className="relative mt-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  role="combobox"
+                  aria-expanded={search.trim().length > 0 && matches.length > 0}
+                  aria-controls="stock-search-options"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === "Enter" && matches[0]) { event.preventDefault(); setSymbol(matches[0].symbol); setSearch(matches[0].symbol); } }}
+                  className="w-full rounded-lg border border-slate-300 py-3 pl-9 pr-3 text-sm font-semibold uppercase outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  placeholder="PFC, TCS, ACC..."
+                />
+              </div>
+            </label>
+            <div id="stock-search-options" role="listbox" className="mt-3 max-h-[420px] space-y-2 overflow-auto pr-1">
+              {(search.trim().length > 0 ? matches : stockSearchRows.slice(0, 12)).map((stock) => (
+                <button
+                  key={stock.symbol}
+                  type="button"
+                  role="option"
+                  aria-selected={normalized === stock.symbol}
+                  onClick={() => { setSymbol(stock.symbol); setSearch(stock.symbol); }}
+                  className={`w-full rounded-lg border p-3 text-left transition ${
+                    normalized === stock.symbol
+                      ? "border-blue-300 bg-blue-50"
+                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-950">{stock.symbol}</p>
+                      <p className="mt-0.5 truncate text-xs text-slate-500">{stock.name}</p>
+                    </div>
+                    <Badge color={stock.source === "model" ? "blue" : "amber"} size="xs">
+                      {stock.source === "model" ? "Model" : "N500"}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 truncate text-xs text-slate-500">{stock.sector || "Sector unavailable"}</p>
+                </button>
+              ))}
+            </div>
+          </Card>
 
-      {holdingsLoading && <p role="status" className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">Loading saved holdings to calculate your portfolio relevance…</p>}
-      {!holdingsLoading && holdingsError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">Saved holdings are unavailable. Personal trade sizing is hidden until the account data loads.</p>}
+          <Card title="What This Page Answers" subtitle="Use before opening a broker app">
+            <div className="space-y-3 text-sm leading-6 text-slate-600">
+              <InfoLine icon={<Search className="h-4 w-4" />} text="Is this stock known to the system?" />
+              <InfoLine icon={<Layers className="h-4 w-4" />} text="Is it in the live model universe or only discovery?" />
+              <InfoLine icon={<TrendingUp className="h-4 w-4" />} text="Do I have a personal action or just research context?" />
+            </div>
+          </Card>
+        </aside>
 
-      {discoveryRow && !row && (
-        <Card title={`${normalized} Discovery`} subtitle="Nifty 500 coverage check; not a recommendation">
+        <main className="min-w-0 space-y-5">
+          <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-2xl font-bold text-slate-950">{normalized || "Select a stock"}</h3>
+                    {row && <Badge color="blue">Live model</Badge>}
+                    {!row && discoveryRow && <Badge color="amber">Nifty 500 discovery</Badge>}
+                    {!row && !discoveryRow && <Badge color="slate">Not loaded</Badge>}
+                  </div>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {selectedSearchStock?.name || discoveryRow?.companyName || "Company name unavailable"}
+                    {(selectedSearchStock?.sector || discoveryRow?.industry || row?.sector) && (
+                      <span> · {selectedSearchStock?.sector || discoveryRow?.industry || row?.sector}</span>
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-slate-50 px-4 py-3 text-right">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reference price</p>
+                  <p className="mt-1 text-2xl font-bold text-slate-950">{latestPrice > 0 ? formatCurrency(latestPrice) : "Unavailable"}</p>
+                  {priceSource && <p className="mt-1 text-xs text-slate-500">{priceSource}</p>}
+                </div>
+              </div>
+            </div>
+            <div className="grid gap-3 p-5 md:grid-cols-4">
+              <QuoteMetric label="Universe" value={row ? "Model" : discoveryRow ? "Discovery" : "Unknown"} />
+              <QuoteMetric label="Model weight" value={formatPercent(currentModelWeight, 2)} />
+              <QuoteMetric label="Latest signal" value={latestSignal} />
+              <QuoteMetric label="Portfolio action" value={actionText} />
+            </div>
+          </section>
+
+          {holdingsLoading && <p role="status" className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">Loading saved holdings to calculate your portfolio relevance…</p>}
+          {!holdingsLoading && holdingsError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">Saved holdings are unavailable. Personal trade sizing is hidden until the account data loads.</p>}
+
+          {discoveryRow && !row && (
+        <Card title="Discovery Status" subtitle="Nifty 500 coverage check; not a recommendation">
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -136,9 +213,9 @@ export function StockInspectorPage() {
         </Card>
       )}
 
-      {row && !holdingsLoading && !holdingsError ? (
+          {row && !holdingsLoading && !holdingsError ? (
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <Card title={`${normalized} Action`} subtitle="Personalized using saved holdings">
+          <Card title="Personal Action" subtitle="Personalized using saved holdings and cash">
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 {row.action === "PAUSED" || row.action === "IGNORED" ? (
@@ -202,6 +279,26 @@ export function StockInspectorPage() {
           <p className="text-sm leading-6 text-slate-600">{symbols.includes(normalized) ? "No current model-plan row or analysis history is available for this stock in the loaded data." : "This stock is not present in the loaded stock data. Search the available symbols or check the spelling."}</p>
         </Card>
       )}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function InfoLine({ icon, text }: { icon: ReactNode; text: string }) {
+  return (
+    <div className="flex items-start gap-3 rounded-lg bg-slate-50 p-3">
+      <span className="mt-0.5 text-slate-500">{icon}</span>
+      <span>{text}</span>
+    </div>
+  );
+}
+
+function QuoteMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-slate-50 p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 truncate text-sm font-bold text-slate-950">{value}</p>
     </div>
   );
 }
