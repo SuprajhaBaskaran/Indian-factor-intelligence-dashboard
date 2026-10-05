@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { ArrowRight, FileText, PencilLine, Plus, Search, ShieldCheck, Trash2, Upload, Wallet } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Badge, Card, SignalBadge, Table } from "@/components/UI";
@@ -248,7 +248,8 @@ export function TradePlanPage() {
     setRecommendationGenerated(false);
   }, [cashText, minimumTradeText, mode]);
 
-  const holdings = useMemo(() => parseHoldingsText(holdingsText), [holdingsText]);
+  const deferredHoldingsText = useDeferredValue(holdingsText);
+  const holdings = useMemo(() => parseHoldingsText(deferredHoldingsText), [deferredHoldingsText]);
   const hasHoldings = holdings.length > 0;
   const manualRows = useMemo(() => parseHoldingEditorRows(holdingsText), [holdingsText]);
   const cash = Number(cashText) || 0;
