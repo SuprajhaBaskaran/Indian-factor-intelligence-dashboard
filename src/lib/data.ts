@@ -39,6 +39,7 @@ import type {
   HistoricalUniverseResolution,
   ForwardOutlook,
   Nifty500DataAudit,
+  RecommendationUniverses,
 } from "@/types";
 import { REGIME_LABELS } from "@/types";
 
@@ -92,6 +93,7 @@ let historicalUniverseResolution: Record<string, HistoricalUniverseResolution> =
 let forwardOutlook: ForwardOutlook | null = null;
 let stockLevelSummary: Record<string, unknown> | null = null;
 let nifty500Audit: Nifty500DataAudit | null = null;
+let recommendationUniverses: RecommendationUniverses | null = null;
 let dashboardDataLoaded = false;
 
 const DATA_BASE = "/data";
@@ -155,6 +157,7 @@ export async function loadDashboardData(): Promise<void> {
     forwardOutlookJson,
     stockLevelSummaryJson,
     nifty500AuditJson,
+    recommendationUniversesJson,
   ] = await Promise.all([
     fetchDataFile<RegimePrediction[]>("regime_predictions"),
     fetchDataFile<FactorBasketEntry[]>("factor_baskets"),
@@ -193,6 +196,7 @@ export async function loadDashboardData(): Promise<void> {
     fetchOptionalDataFile<ForwardOutlook>("forward_outlook"),
     fetchOptionalDataFile<Record<string, unknown>>("backtest_stock_level_summary"),
     fetchOptionalDataFile<Nifty500DataAudit>("nifty500_data_audit"),
+    fetchOptionalDataFile<RecommendationUniverses>("recommendation_universes"),
   ]);
 
   regimes = regimesJson;
@@ -228,6 +232,7 @@ export async function loadDashboardData(): Promise<void> {
   forwardOutlook = forwardOutlookJson;
   stockLevelSummary = stockLevelSummaryJson;
   nifty500Audit = nifty500AuditJson;
+  recommendationUniverses = recommendationUniversesJson;
   dashboardDataLoaded = true;
 }
 
@@ -349,6 +354,10 @@ export function getStocks(): StockMeta[] {
 
 export function getNifty500DataAudit(): Nifty500DataAudit | null {
   return nifty500Audit;
+}
+
+export function getRecommendationUniverses(): RecommendationUniverses | null {
+  return recommendationUniverses;
 }
 
 export function getBacktestPortfolio(): BacktestPortfolioPoint[] {

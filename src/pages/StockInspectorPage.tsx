@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Badge, Card, SignalBadge, Table } from "@/components/UI";
 import { TermTooltip } from "@/components/TermTooltip";
-import { formatPercent, getNifty500DataAudit, getSignalEvents, getStockPrices, getStockSymbols, getStocks } from "@/lib/data";
+import { formatPercent, getNifty500DataAudit, getRecommendationUniverses, getSignalEvents, getStockPrices, getStockSymbols, getStocks } from "@/lib/data";
 import { buildTradePlan, formatCurrency } from "@/lib/product";
 import { useUserData } from "@/lib/userData";
 import type { StockPricePoint, StockSignalEvent } from "@/types";
@@ -31,7 +31,9 @@ export function StockInspectorPage() {
   const symbols = getStockSymbols();
   const stockNames = getStocks();
   const nifty500Audit = getNifty500DataAudit();
+  const recommendationUniverses = getRecommendationUniverses();
   const nifty500Rows = useMemo(() => nifty500Audit?.rows || [], [nifty500Audit]);
+  const [recommendationMode, setRecommendationMode] = useState<"nifty200" | "nifty500">("nifty500");
   const [symbol, setSymbol] = useState(symbols.includes("PFC") ? "PFC" : symbols[0] || "");
   const [search, setSearch] = useState(symbol);
   const normalized = symbol.trim().toUpperCase();
@@ -64,6 +66,9 @@ export function StockInspectorPage() {
   const preview = buildTradePlan(holdings, cash);
   const row = preview.rows.find((item) => item.symbol === normalized);
   const selectedSearchStock = stockSearchRows.find((item) => item.symbol === normalized);
+  const recommendationUniverse = recommendationUniverses?.universes[recommendationMode] || null;
+  const recommendationRows = recommendationUniverse?.rows.slice(0, recommendationMode === "nifty200" ? 60 : 100) || [];
+  const selectedCandidate = recommendationUniverses?.universes.nifty500.rows.find((item) => item.symbol === normalized);
   const signals = useMemo(() => getSignalEvents(normalized).slice(-20).reverse(), [normalized]);
   const prices = getStockPrices(normalized);
   const latestPricePoint = prices[prices.length - 1];
@@ -116,6 +121,93 @@ export function StockInspectorPage() {
           <Badge color="green">Price history</Badge>
         </div>
       </div>
+
+      <Card
+        title="AI Recommendations"
+        subtitle="Choose the recommendation universe. Nifty 200 is the validated portfolio model; Nifty 500 is a broader real-price candidate scan."
+      >
+        <div className="mb-4 grid gap-2 sm:grid-cols-2">
+          {[
+            { id: "nifty200" as const, title: "Nifty 200 model basket", detail: "Validated monthly portfolio targets with factor sleeves and constraints." },
+            { id: "nifty500" as const, title: "Nifty 500 AI candidates", detail: "Weighted price-risk ensemble with Bayesian shrinkage for shorter histories." },
+          ].map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => setRecommendationMode(option.id)}
+              className={`rounded-lg border p-3 text-left transition ${
+                recommendationMode === option.id
+                  ? "border-blue-300 bg-blue-50 text-blue-950"
+                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <p className="text-sm font-bold">{option.title}</p>
+              <p className="mt-1 text-xs leading-5">{option.detail}</p>
+            </button>
+          ))}
+        </div>
+
+        {recommendationUniverse ? (
+          <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+            <div className="rounded-xl bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{recommendationUniverse.label}</p>
+              <p className="mt-2 text-2xl font-bold text-slate-950">
+                {recommendationMode === "nifty500"
+                  ? `${recommendationUniverse.topCandidateCount || 0} candidates`
+                  : `${recommendationUniverse.count} model stocks`}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{recommendationUniverse.method}</p>
+              {recommendationUniverse.validationNote && (
+                <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
+                  {recommendationUniverse.validationNote}
+                </p>
+              )}
+            </div>
+            <div className="grid max-h-[440px] gap-2 overflow-auto pr-1 md:grid-cols-2 2xl:grid-cols-3">
+              {recommendationRows.map((item) => (
+                <button
+                  key={`${recommendationMode}-${item.symbol}`}
+                  type="button"
+                  onClick={() => { setSymbol(item.symbol); setSearch(item.symbol); }}
+                  className={`rounded-lg border p-3 text-left transition ${
+                    normalized === item.symbol
+                      ? "border-blue-300 bg-blue-50"
+                      : "border-slate-200 bg-white hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-slate-950">#{item.rank} {item.symbol}</p>
+                      {item.name && <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">{item.name}</p>}
+                    </div>
+                    <Badge color={item.recommendation === "AI candidate" || item.recommendation === "Model basket" ? "green" : item.recommendation === "Watchlist" ? "amber" : "slate"} size="xs">
+                      {item.recommendation}
+                    </Badge>
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                    <span className="rounded-md bg-slate-50 px-2 py-1 text-slate-600">
+                      {recommendationMode === "nifty200" ? "Weight" : "12m"}
+                      <b className="ml-1 text-slate-950">{recommendationMode === "nifty200" ? formatPercent(item.targetWeight || 0, 2) : formatPercent(item.ret12m, 1)}</b>
+                    </span>
+                    <span className="rounded-md bg-slate-50 px-2 py-1 text-slate-600">
+                      {recommendationMode === "nifty200" ? "Score" : "Risk"}
+                      <b className="ml-1 text-slate-950">{recommendationMode === "nifty200" ? (item.score ?? 0).toFixed(2) : formatPercent(item.vol12m, 1)}</b>
+                    </span>
+                    <span className="rounded-md bg-slate-50 px-2 py-1 text-slate-600">
+                      Conf
+                      <b className="ml-1 text-slate-950">{item.confidence == null ? "High" : formatPercent(item.confidence, 0)}</b>
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+            Recommendation universe data has not loaded yet. Run the model-data export before using this panel.
+          </div>
+        )}
+      </Card>
 
       <Card title="Search Stocks" subtitle={`${stockSearchRows.length} stocks loaded. Type a symbol, company, or sector; press Enter to open the first match.`}>
         <div className="relative">
@@ -195,6 +287,18 @@ export function StockInspectorPage() {
               <QuoteMetric label="Latest signal" value={latestSignal} />
               <QuoteMetric label="Your action" value={actionText} />
             </div>
+            {selectedCandidate && !row && (
+              <div className="mx-5 mb-5 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-950">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge color={selectedCandidate.recommendation === "AI candidate" ? "green" : selectedCandidate.recommendation === "Watchlist" ? "amber" : "slate"}>
+                    Nifty 500 #{selectedCandidate.rank} · {selectedCandidate.recommendation}
+                  </Badge>
+                  <span>Score {(selectedCandidate.score ?? 0).toFixed(2)}</span>
+                  <span>Confidence {formatPercent(selectedCandidate.confidence, 0)}</span>
+                </div>
+                <p className="mt-2">{selectedCandidate.reason}</p>
+              </div>
+            )}
           </section>
 
       {hasVerifiedPriceHistory ? (

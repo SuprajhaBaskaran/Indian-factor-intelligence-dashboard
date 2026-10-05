@@ -459,6 +459,47 @@ export interface Nifty500DataAudit {
   rows: Nifty500AuditRow[];
 }
 
+export interface RecommendationUniverseRow {
+  rank: number;
+  symbol: string;
+  name?: string;
+  sector?: string;
+  latestClose?: number;
+  latestMonth?: string | null;
+  priceMonths?: number;
+  ret1m?: number | null;
+  ret3m?: number | null;
+  ret6m?: number | null;
+  ret12m?: number | null;
+  vol12m?: number | null;
+  drawdown12m?: number | null;
+  confidence?: number;
+  score?: number;
+  targetWeight?: number;
+  factors?: string[];
+  recommendation: string;
+  reason?: string;
+}
+
+export interface RecommendationUniverse {
+  label: string;
+  status: string;
+  modelMonth: string | null;
+  count: number;
+  topCandidateCount?: number;
+  method: string;
+  validationNote?: string;
+  rows: RecommendationUniverseRow[];
+}
+
+export interface RecommendationUniverses {
+  generatedAt: string;
+  universes: {
+    nifty200: RecommendationUniverse;
+    nifty500: RecommendationUniverse;
+  };
+}
+
 /**
  * One rung of the cost ladder. The book is re-run end to end at each cost
  * level, because turnover depends on the weights, not just on the base case.
