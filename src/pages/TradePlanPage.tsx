@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, PencilLine, ShieldCheck, Upload, Wallet } from "lucide-react";
+import { ArrowRight, FileText, PencilLine, Plus, Search, ShieldCheck, Trash2, Upload, Wallet } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Badge, Card, SignalBadge, Table } from "@/components/UI";
 import { TermTooltip } from "@/components/TermTooltip";
@@ -22,6 +22,7 @@ import { getDecisionSnapshot } from "@/lib/product";
 import { getPortfolioTargets, getStocks } from "@/lib/data";
 
 type TradeMode = "fresh" | "rebalance";
+type HoldingEntryMode = "import" | "manual" | "paste";
 
 function getHoldingInputIssues(text: string): string[] {
   return text
@@ -50,6 +51,10 @@ function createBlankHoldingRows(rows: UserHolding[]): UserHolding[] {
 function formatPriceRange(price: number): string {
   if (!Number.isFinite(price) || price <= 0) return "—";
   return `${formatCurrency(price * 0.985)} - ${formatCurrency(price * 1.015)}`;
+}
+
+function formatShareCount(quantity: number): string {
+  return `${quantity} share${quantity === 1 ? "" : "s"}`;
 }
 
 function getFreshPlanTone(action: string): { title: string; detail: string; color: "green" | "amber" | "slate" } {
@@ -88,7 +93,8 @@ export function TradePlanPage() {
   const [loadError, setLoadError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
   const [minimumTradeText, setMinimumTradeText] = useState("1000");
-  const [filter, setFilter] = useState("ALL");
+  const [filter, setFilter] = useState("ACTIONS");
+  const [holdingEntryMode, setHoldingEntryMode] = useState<HoldingEntryMode>("manual");
   const [savedInput, setSavedInput] = useState<{ holdings: string; cash: string } | null>(null);
   const [recommendationGenerated, setRecommendationGenerated] = useState(false);
   const [customStockQuery, setCustomStockQuery] = useState("");
@@ -145,14 +151,32 @@ export function TradePlanPage() {
   const selectedCustomStock = stocks.find((stock) => stock.symbol === normalizedCustomQuery);
   const customTarget = targets.find((target) => target.symbol === normalizedCustomQuery);
   const customPlan = normalizedCustomQuery ? buildCashDeploymentPlan(cash, [normalizedCustomQuery], minimumTradeValue) : null;
+  const customTradeRow = normalizedCustomQuery ? preview.rows.find((row) => row.symbol === normalizedCustomQuery) : null;
   const customPrice = normalizedCustomQuery ? getLatestPrice(normalizedCustomQuery) : 0;
+  const customHeldQuantity = holdings.find((holding) => holding.symbol === normalizedCustomQuery)?.quantity || 0;
   const customVerdict = normalizedCustomQuery.length === 0
     ? null
-    : customTarget && customPlan && customPlan.rows.length > 0
+    : mode === "rebalance" && customTarget && customTradeRow
+      ? {
+          tone: customTradeRow.action === "BUY" || customTradeRow.action === "ADD"
+            ? "green" as const
+            : customTradeRow.action === "SELL" || customTradeRow.action === "REDUCE"
+              ? "amber" as const
+              : "slate" as const,
+          title: "Model view for your portfolio",
+          detail: `${normalizedCustomQuery} is in this month’s model basket at ${(customTradeRow.targetWeight * 100).toFixed(2)}%. You have ${formatShareCount(customHeldQuantity)}; model target is ${formatShareCount(customTradeRow.targetQuantity)}. Personal action: ${customTradeRow.action.toLowerCase()}${customTradeRow.tradeValue > 0 ? ` around ${formatCurrency(customTradeRow.tradeValue)}` : ""}.`,
+        }
+    : mode === "rebalance" && customTarget
       ? {
           tone: "green" as const,
-          title: "Model allows this stock",
-          detail: `${normalizedCustomQuery} is in the current basket. Suggested quantity: ${customPlan.rows[0].quantity} share${customPlan.rows[0].quantity === 1 ? "" : "s"} inside ${formatPriceRange(customPrice)}.`,
+          title: "Model supports this stock",
+          detail: `${normalizedCustomQuery} is in this month’s basket. Add free cash above, save your plan, and the assistant can size it against the rest of your portfolio.`,
+        }
+    : customTarget && customPlan && customPlan.rows.length > 0
+      ? {
+            tone: "green" as const,
+            title: "Model allows this stock",
+            detail: `${normalizedCustomQuery} is in the current basket. Suggested quantity: ${formatShareCount(customPlan.rows[0].quantity)} inside ${formatPriceRange(customPrice)}.`,
         }
       : customTarget
         ? {
@@ -167,16 +191,32 @@ export function TradePlanPage() {
               ? `${normalizedCustomQuery} is known, but the model is not selecting it for this month. Keep it on watch instead of forcing a buy from this plan.`
               : `No exact symbol match yet. Choose one of the suggestions before using this as a personal stock check.`,
           };
+  const customVerdictBadge = mode === "rebalance" && customTarget && customTradeRow
+    ? customTradeRow.action === "HOLD"
+      ? "Hold / no trade"
+      : customTradeRow.action
+    : customVerdict?.tone === "green"
+      ? "Can consider"
+      : customVerdict?.tone === "amber"
+        ? "Review action"
+        : "Watchlist";
 
   const holdingCards = holdings.map((holding) => {
     const latestPrice = getLatestPrice(holding.symbol);
+    const planRow = preview.rows.find((row) => row.symbol === holding.symbol);
+    const stock = stocks.find((item) => item.symbol === holding.symbol);
     const avgPrice = holding.avgPrice || 0;
     const invested = avgPrice > 0 ? holding.quantity * avgPrice : 0;
     const currentValue = holding.quantity * latestPrice;
     const pnl = invested > 0 ? currentValue - invested : 0;
     const pnlPct = invested > 0 ? pnl / invested : 0;
-    return { ...holding, latestPrice, avgPrice, invested, currentValue, pnl, pnlPct };
+    return { ...holding, latestPrice, avgPrice, invested, currentValue, pnl, pnlPct, planRow, stock };
   });
+  const holdingsMarketValue = holdingCards.reduce((sum, holding) => sum + holding.currentValue, 0);
+  const holdingsInvestedValue = holdingCards.reduce((sum, holding) => sum + holding.invested, 0);
+  const holdingsPnl = holdingsMarketValue - holdingsInvestedValue;
+  const holdingsPnlPct = holdingsInvestedValue > 0 ? holdingsPnl / holdingsInvestedValue : 0;
+  const modeledHoldingCount = holdingCards.filter((holding) => holding.planRow && holding.planRow.targetWeight > 0).length;
 
   const cashPlanRows = cashPlan.rows.map((row) => ({
     stock: <span className="font-semibold text-slate-900">{row.symbol}</span>,
@@ -187,7 +227,11 @@ export function TradePlanPage() {
   }));
 
   const tableRows = hasHoldings ? preview.rows
-    .filter((row) => (filter === "ALL" ? true : row.action === filter))
+    .filter((row) => {
+      if (filter === "ALL") return true;
+      if (filter === "ACTIONS") return row.finalTradeQuantity !== 0 || ["BUY", "ADD", "SELL", "REDUCE", "PAUSED"].includes(row.action);
+      return row.action === filter;
+    })
     .sort((a, b) => {
       const order = { SELL: 0, REDUCE: 1, BUY: 2, ADD: 3, PAUSED: 4, IGNORED: 5, HOLD: 6 };
       return (order[a.action] ?? 9) - (order[b.action] ?? 9) || b.tradeValue - a.tradeValue;
@@ -314,7 +358,7 @@ export function TradePlanPage() {
     : [
         { label: "Import or enter holdings", value: hasHoldings ? `${holdings.length} stock${holdings.length === 1 ? "" : "s"}` : "Waiting for holdings" },
         { label: "AI compares with model", value: snapshot.latestMonth },
-        { label: "Output", value: `${executableRows.length} trade${executableRows.length === 1 ? "" : "s"}` },
+        { label: "Output", value: executableRows.length > 0 ? `${executableRows.length} trade${executableRows.length === 1 ? "" : "s"}` : "No trades now" },
       ];
 
   return (
@@ -467,57 +511,101 @@ export function TradePlanPage() {
 
           {mode === "rebalance" && (
             <div className="mt-5 space-y-5">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <Upload className="h-4 w-4 text-slate-500" />
-                    Import
-                  </div>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">Best when the user has a broker holdings CSV.</p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {[
+                    { id: "manual" as const, label: "Manual", helper: "A few holdings", icon: PencilLine },
+                    { id: "import" as const, label: "CSV import", helper: "Broker export", icon: Upload },
+                    { id: "paste" as const, label: "Paste list", helper: "Fast bulk entry", icon: FileText },
+                  ].map((option) => {
+                    const Icon = option.icon;
+                    const active = holdingEntryMode === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setHoldingEntryMode(option.id)}
+                        className={`flex items-start gap-3 rounded-lg border p-3 text-left transition ${
+                          active
+                            ? "border-blue-300 bg-white text-blue-900 shadow-sm"
+                            : "border-transparent bg-transparent text-slate-600 hover:bg-white"
+                        }`}
+                      >
+                        <Icon className={`mt-0.5 h-4 w-4 ${active ? "text-blue-700" : "text-slate-400"}`} />
+                        <span>
+                          <span className="block text-sm font-bold">{option.label}</span>
+                          <span className="mt-0.5 block text-xs">{option.helper}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <PencilLine className="h-4 w-4 text-slate-500" />
-                    Manual entry
-                  </div>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">Best when the user wants to type a few holdings quickly.</p>
-                </div>
-              </div>
-              <div>
-                <label className="block rounded-lg border border-dashed border-blue-300 bg-blue-50 p-4 text-center text-sm font-semibold text-blue-700 hover:bg-blue-100">
-                  Import broker holdings CSV
-                  <input type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => handleImportFile(event.target.files?.[0] || null)} />
-                </label>
-                <p className="mt-2 text-xs text-slate-500">Accepts symbol, quantity, average price columns.</p>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-white">
-                <div className="border-b border-slate-100 px-4 py-3">
-                  <p className="text-sm font-semibold text-slate-900">Paste holdings</p>
-                  <p className="mt-1 text-xs text-slate-500">One row per stock: PFC,10,420</p>
+              {holdingEntryMode === "import" && (
+                <div className="rounded-xl border border-dashed border-blue-300 bg-blue-50 p-5 text-center">
+                  <Upload className="mx-auto h-6 w-6 text-blue-700" />
+                  <p className="mt-2 text-sm font-bold text-slate-950">Import your broker holdings CSV</p>
+                  <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-slate-600">
+                    Works with exports that contain symbol, quantity, and optionally average price. Nothing is traded from this upload.
+                  </p>
+                  <label className="mt-4 inline-flex cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+                    Choose CSV file
+                    <input type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => handleImportFile(event.target.files?.[0] || null)} />
+                  </label>
                 </div>
-                <div className="p-4">
-                  <textarea
-                    value={bulkEntryText}
-                    onChange={(event) => setBulkEntryText(event.target.value)}
-                    className="h-24 w-full rounded-lg border border-slate-300 p-3 font-mono text-xs outline-none focus:border-blue-500"
-                    placeholder={"PFC,10,420\nBAJFINANCE,4,950\nAMBUJACEM,20"}
-                  />
-                  <button
-                    onClick={loadBulkHoldings}
-                    type="button"
-                    className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    Load pasted holdings
-                  </button>
+              )}
+
+              {holdingEntryMode === "paste" && (
+                <div className="rounded-xl border border-slate-200 bg-white">
+                  <div className="border-b border-slate-100 px-4 py-3">
+                    <p className="text-sm font-semibold text-slate-900">Paste holdings</p>
+                    <p className="mt-1 text-xs text-slate-500">One row per stock, for example PFC,10,420</p>
+                  </div>
+                  <div className="p-4">
+                    <textarea
+                      value={bulkEntryText}
+                      onChange={(event) => setBulkEntryText(event.target.value)}
+                      className="h-24 w-full rounded-lg border border-slate-300 p-3 font-mono text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      placeholder={"PFC,10,420\nBAJFINANCE,4,950\nAMBUJACEM,20"}
+                    />
+                    <button
+                      onClick={loadBulkHoldings}
+                      type="button"
+                      className="mt-3 w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                    >
+                      Load pasted holdings
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {holdingCards.length > 0 && (
                 <div className="space-y-3">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="text-xs font-semibold text-slate-500">Holdings value</p>
+                      <p className="mt-1 text-lg font-bold text-slate-950">{formatCurrency(holdingsMarketValue)}</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="text-xs font-semibold text-slate-500">Unrealized P&L</p>
+                      <p className={`mt-1 text-lg font-bold ${holdingsPnl >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                        {holdingsPnl >= 0 ? "+" : ""}{formatCurrency(holdingsPnl)}
+                      </p>
+                      {holdingsInvestedValue > 0 && (
+                        <p className={`mt-0.5 text-xs font-semibold ${holdingsPnl >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                          {(holdingsPnlPct * 100).toFixed(1)}%
+                        </p>
+                      )}
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="text-xs font-semibold text-slate-500">In model basket</p>
+                      <p className="mt-1 text-lg font-bold text-slate-950">{modeledHoldingCount}/{holdingCards.length}</p>
+                    </div>
+                  </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-slate-900">Current portfolio</p>
-                    <Badge color="slate">{holdingCards.length} holdings</Badge>
+                    <p className="text-sm font-semibold text-slate-900">Current holdings</p>
+                    <Badge color="slate">{holdingCards.length} stocks</Badge>
                   </div>
                   <div className="max-h-[300px] space-y-2 overflow-auto pr-1">
                     {holdingCards.map((holding) => (
@@ -525,15 +613,25 @@ export function TradePlanPage() {
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-bold text-slate-950">{holding.symbol}</p>
-                            <p className="text-xs text-slate-500">{holding.quantity} shares @ {formatCurrency(holding.avgPrice)}</p>
+                            <p className="text-xs text-slate-500">
+                              {holding.stock?.name || "Company name unavailable"} · {holding.stock?.sector || holding.planRow?.sector || "Sector unavailable"}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">{holding.quantity} shares @ {holding.avgPrice > 0 ? formatCurrency(holding.avgPrice) : "avg price missing"}</p>
                           </div>
-                          <div className="text-right">
+                          <div className="min-w-[110px] text-right">
                             <p className="text-sm font-bold text-slate-950">{formatCurrency(holding.currentValue)}</p>
                             {holding.invested > 0 && (
                               <p className={`text-xs font-semibold ${holding.pnl >= 0 ? "text-emerald-600" : "text-red-600"}`}>
                                 {holding.pnl >= 0 ? "+" : ""}{formatCurrency(holding.pnl)} ({(holding.pnlPct * 100).toFixed(1)}%)
                               </p>
                             )}
+                            <div className="mt-2">
+                              {holding.planRow ? (
+                                <SignalBadge signal={holding.planRow.action} />
+                              ) : (
+                                <Badge color="slate">Watch</Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -542,9 +640,10 @@ export function TradePlanPage() {
                 </div>
               )}
 
-              <div className="rounded-xl border border-slate-200 bg-white">
+              <div className={`rounded-xl border border-slate-200 bg-white ${holdingEntryMode === "manual" ? "" : "hidden"}`}>
                 <div className="border-b border-slate-100 px-4 py-3">
                   <p className="text-sm font-semibold text-slate-900">Edit holdings</p>
+                  <p className="mt-1 text-xs text-slate-500">Use this when you want Zerodha/Groww-style quick entry without a file.</p>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[380px] text-sm">
@@ -586,10 +685,11 @@ export function TradePlanPage() {
                           <td className="px-3 py-2 text-center">
                             <button
                               onClick={() => removeManualRow(index)}
-                              className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 text-slate-500 hover:bg-slate-50"
                               type="button"
+                              aria-label={`Remove ${row.symbol || "holding row"}`}
                             >
-                              Remove
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </td>
                         </tr>
@@ -600,8 +700,9 @@ export function TradePlanPage() {
                 <button
                   onClick={addManualRow}
                   type="button"
-                  className="m-3 w-[calc(100%-1.5rem)] rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  className="m-3 inline-flex w-[calc(100%-1.5rem)] items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
+                  <Plus className="h-4 w-4" />
                   Add holding row
                 </button>
               </div>
@@ -793,7 +894,7 @@ export function TradePlanPage() {
                           {selectedCustomStock && <p className="mt-2 text-xs text-slate-500">{selectedCustomStock.name} · {selectedCustomStock.sector || "Sector unavailable"}</p>}
                         </div>
                         <Badge color={customVerdict.tone === "green" ? "green" : customVerdict.tone === "amber" ? "amber" : "slate"}>
-                          {customVerdict.tone === "green" ? "Can consider" : customVerdict.tone === "amber" ? "Watch sizing" : "Watchlist"}
+                          {customVerdictBadge}
                         </Badge>
                       </div>
                     </div>
@@ -836,6 +937,64 @@ export function TradePlanPage() {
                 </div>
               )}
 
+              <Card
+                title="Check my own stock idea"
+                subtitle="Ask whether a stock fits your current holdings, model basket, and available cash."
+              >
+                <div className="space-y-4">
+                  <label className="block text-xs font-medium text-slate-600">
+                    Stock symbol or company name
+                    <div className="relative mt-1">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input
+                        value={customStockQuery}
+                        onChange={(event) => setCustomStockQuery(event.target.value.toUpperCase())}
+                        className="w-full rounded-lg border border-slate-300 py-3 pl-9 pr-3 text-sm font-semibold uppercase outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        placeholder="Type RELIANCE, TCS, PFC..."
+                      />
+                    </div>
+                  </label>
+                  {customSuggestions.length > 0 && normalizedCustomQuery !== customSuggestions[0]?.symbol && (
+                    <div className="flex flex-wrap gap-2">
+                      {customSuggestions.map((stock) => (
+                        <button
+                          key={stock.symbol}
+                          type="button"
+                          onClick={() => setCustomStockQuery(stock.symbol)}
+                          className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700"
+                        >
+                          {stock.symbol} <span className="font-normal text-slate-500">{stock.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {customVerdict ? (
+                    <div className={`rounded-xl border p-4 ${
+                      customVerdict.tone === "green"
+                        ? "border-emerald-200 bg-emerald-50"
+                        : customVerdict.tone === "amber"
+                        ? "border-amber-200 bg-amber-50"
+                        : "border-slate-200 bg-slate-50"
+                    }`}>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-slate-950">{customVerdict.title}</p>
+                          <p className="mt-1 text-sm leading-6 text-slate-700">{customVerdict.detail}</p>
+                          {selectedCustomStock && <p className="mt-2 text-xs text-slate-500">{selectedCustomStock.name} · {selectedCustomStock.sector || "Sector unavailable"}</p>}
+                        </div>
+                        <Badge color={customVerdict.tone === "green" ? "green" : customVerdict.tone === "amber" ? "amber" : "slate"}>
+                          {customVerdictBadge}
+                        </Badge>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+                      Use this when you are about to search a stock in Zerodha or Groww and want this app to answer: is it in the model, do I already own enough, and should I add, hold, reduce, or just watch?
+                    </div>
+                  )}
+                </div>
+              </Card>
+
               {hasHoldings && <Card title="Monthly Positional View" subtitle="What the assistant understood from your holdings">
                 <p className="text-sm leading-6 text-slate-700">{explanation}</p>
                 <div className="mt-4 grid gap-2 sm:grid-cols-3">
@@ -862,13 +1021,21 @@ export function TradePlanPage() {
 
               <Card
                 title="Recommended Changes"
-                subtitle={hasHoldings ? "Your exact action list" : "Waiting for your holdings"}
+                subtitle={hasHoldings ? "Actionable trades first. Switch to all model rows only when you want audit detail." : "Waiting for your holdings"}
                 action={
                   <select value={filter} onChange={(event) => setFilter(event.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
-                    {["ALL", "BUY", "ADD", "SELL", "REDUCE", "PAUSED", "IGNORED", "HOLD"].map((item) => <option key={item} value={item}>{item}</option>)}
+                    {["ACTIONS", "ALL", "BUY", "ADD", "SELL", "REDUCE", "PAUSED", "IGNORED", "HOLD"].map((item) => <option key={item} value={item}>{item === "ACTIONS" ? "ACTIONABLE" : item}</option>)}
                   </select>
                 }
               >
+                {hasHoldings && executableRows.length === 0 && filter === "ACTIONS" && (
+                  <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-sm font-bold text-slate-950">No portfolio trades to place right now.</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      The model is in RETAIN mode, so it is showing target differences for transparency but not asking you to rebalance today.
+                    </p>
+                  </div>
+                )}
                 <Table
                   maxHeight="620px"
                   columns={[
@@ -880,6 +1047,7 @@ export function TradePlanPage() {
                     { key: "reason", label: "Reason" },
                   ]}
                   data={tableRows}
+                  emptyMessage={filter === "ACTIONS" ? "No actionable trades for the current model gate." : "No records are available for this filter."}
                 />
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <button onClick={handleExport} className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
