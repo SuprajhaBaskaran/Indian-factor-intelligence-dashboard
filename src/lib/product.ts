@@ -13,6 +13,7 @@ import {
   getNewsDailyFeatures,
   getPortfolioTargets,
   getSectorExposure,
+  getSignalEvents,
   getStocks,
   getStockPrices,
 } from "@/lib/data";
@@ -157,9 +158,14 @@ export function parseHoldingsCsv(text: string): UserHolding[] {
 
 export function getLatestPrice(symbol: string): number {
   const rows = getStockPrices(symbol);
-  if (rows.length === 0) return 0;
   const latest = rows[rows.length - 1];
-  return latest.adjusted_close || latest.close || 0;
+  const latestStockPrice = latest?.adjusted_close || latest?.close || 0;
+  if (latestStockPrice > 0) return latestStockPrice;
+  const latestSignal = [...getSignalEvents(symbol)]
+    .filter((event) => Number(event.signal_price) > 0)
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .at(-1);
+  return latestSignal?.signal_price || 0;
 }
 
 export function assessDailyRisk(): RiskAssessment {
