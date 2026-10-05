@@ -19,7 +19,7 @@ import {
 } from "@/lib/product";
 import { useUserData, type UserHolding as PersistedHolding } from "@/lib/userData";
 import { getDecisionSnapshot } from "@/lib/product";
-import { getNifty500DataAudit, getPortfolioTargets, getStockSymbols, getStocks } from "@/lib/data";
+import { getNifty500DataAudit, getPortfolioTargets, getRecommendationUniverses, getStockSymbols, getStocks } from "@/lib/data";
 
 type TradeMode = "fresh" | "rebalance";
 type HoldingEntryMode = "import" | "manual" | "paste";
@@ -256,10 +256,11 @@ export function TradePlanPage() {
   const minimumTradeValue = Number(minimumTradeText) || 0;
   const holdingIssues = getHoldingInputIssues(holdingsText);
 
-  const preview = buildTradePlan(holdings, cash, minimumTradeValue);
-  const cashPlan = buildCashDeploymentPlan(cash, [], minimumTradeValue);
+  const preview = useMemo(() => buildTradePlan(holdings, cash, minimumTradeValue), [holdings, cash, minimumTradeValue]);
+  const cashPlan = useMemo(() => buildCashDeploymentPlan(cash, [], minimumTradeValue), [cash, minimumTradeValue]);
   const targets = getPortfolioTargets();
   const stocks = getStocks();
+  const recommendationUniverses = getRecommendationUniverses();
   const modelExampleSymbols = useMemo(() => {
     return [...targets]
       .sort((a, b) => b.target_weight - a.target_weight)
@@ -297,25 +298,35 @@ export function TradePlanPage() {
   const dailyRisk = assessDailyRisk();
   const freshTone = getFreshPlanTone(cashPlan.action);
   const recommendationAvailable = snapshot.latestMonth !== "—" && snapshot.decision !== null;
-  const explanation = buildDeterministicExplanation(dailyRisk, preview.rows);
-  const executableRows = preview.rows.filter((row) => row.finalTradeQuantity !== 0);
-  const normalizedCustomQuery = customStockQuery.trim().toUpperCase();
+  const explanation = useMemo(() => buildDeterministicExplanation(dailyRisk, preview.rows), [dailyRisk, preview.rows]);
+  const executableRows = useMemo(() => preview.rows.filter((row) => row.finalTradeQuantity !== 0), [preview.rows]);
+  const deferredCustomStockQuery = useDeferredValue(customStockQuery);
+  const liveCustomQuery = customStockQuery.trim().toUpperCase();
+  const normalizedCustomQuery = deferredCustomStockQuery.trim().toUpperCase();
+  const stockSearchIndex = useMemo(() => stocks.map((stock) => ({
+    ...stock,
+    searchText: `${stock.symbol} ${stock.name}`.toUpperCase(),
+  })), [stocks]);
   const customSuggestions = useMemo(() => {
-    if (normalizedCustomQuery.length < 1) return [];
-    return stocks
-      .filter((stock) =>
-        stock.symbol.includes(normalizedCustomQuery) ||
-        stock.name.toUpperCase().includes(normalizedCustomQuery)
-      )
+    if (liveCustomQuery.length < 1) return [];
+    return stockSearchIndex
+      .filter((stock) => stock.searchText.includes(liveCustomQuery))
       .slice(0, 6);
-  }, [normalizedCustomQuery, stocks]);
+  }, [liveCustomQuery, stockSearchIndex]);
   const selectedCustomStock = stocks.find((stock) => stock.symbol === normalizedCustomQuery);
   const customTarget = targets.find((target) => target.symbol === normalizedCustomQuery);
-  const customPlan = normalizedCustomQuery ? buildCashDeploymentPlan(cash, [normalizedCustomQuery], minimumTradeValue) : null;
+  const selectedCandidate = normalizedCustomQuery
+    ? recommendationUniverses?.universes.nifty200.rows.find((row) => row.symbol === normalizedCustomQuery) ||
+      recommendationUniverses?.universes.nifty500.rows.find((row) => row.symbol === normalizedCustomQuery)
+    : null;
+  const customPlan = useMemo(
+    () => normalizedCustomQuery ? buildCashDeploymentPlan(cash, [normalizedCustomQuery], minimumTradeValue) : null,
+    [cash, minimumTradeValue, normalizedCustomQuery],
+  );
   const customTradeRow = normalizedCustomQuery ? preview.rows.find((row) => row.symbol === normalizedCustomQuery) : null;
   const customPrice = normalizedCustomQuery ? getLatestPrice(normalizedCustomQuery) : 0;
   const customHeldQuantity = holdings.find((holding) => holding.symbol === normalizedCustomQuery)?.quantity || 0;
-  const customVerdict = normalizedCustomQuery.length === 0
+  const customVerdict = useMemo(() => normalizedCustomQuery.length === 0
     ? null
     : mode === "rebalance" && customTarget && customTradeRow
       ? {
@@ -351,7 +362,32 @@ export function TradePlanPage() {
             detail: selectedCustomStock
               ? `${normalizedCustomQuery} is known, but the model is not selecting it for this month. Keep it on watch instead of forcing a buy from this plan.`
               : `No exact symbol match yet. Choose one of the suggestions before using this as a personal stock check.`,
-          };
+          }, [customHeldQuantity, customPlan, customPrice, customTarget, customTradeRow, mode, normalizedCustomQuery, selectedCustomStock]);
+  const customReasoningRows = useMemo(() => {
+    if (!normalizedCustomQuery || !customVerdict) return [];
+    if (!selectedCustomStock && !selectedCandidate && !customTarget) {
+      return [
+        "The app needs an exact listed symbol before it can compare the stock with the model basket.",
+        "Pick a suggestion so the check can use the same symbol format as the market data.",
+      ];
+    }
+    const rows: string[] = [];
+    if (customTarget) {
+      rows.push(`${normalizedCustomQuery} has a ${(customTarget.target_weight * 100).toFixed(2)}% target weight in this month's model basket.`);
+      rows.push("The action still depends on your cash, current quantity, latest price, and minimum trade size.");
+    } else {
+      rows.push(`${normalizedCustomQuery} has 0% target weight in this month's selected model basket.`);
+      rows.push(`The basket currently keeps ${targets.length} stocks after factor ranking, regime weights, liquidity checks, and sizing constraints.`);
+    }
+    if (selectedCandidate) {
+      rows.push(`Candidate scan: rank ${selectedCandidate.rank}, ${selectedCandidate.recommendation.toLowerCase()} view${selectedCandidate.confidence !== undefined ? `, ${(selectedCandidate.confidence * 100).toFixed(0)}% confidence` : ""}.`);
+      if (selectedCandidate.reason) rows.push(selectedCandidate.reason);
+    } else if (!customTarget) {
+      rows.push("It did not appear high enough in the broader candidate scan to become a preferred buy this month.");
+    }
+    if (selectedCustomStock?.sector) rows.push(`Sector context: ${selectedCustomStock.sector}.`);
+    return rows;
+  }, [customTarget, customVerdict, normalizedCustomQuery, selectedCandidate, selectedCustomStock, targets.length]);
   const customVerdictBadge = mode === "rebalance" && customTarget && customTradeRow
     ? customTradeRow.action === "HOLD"
       ? "Hold / no trade"
@@ -362,7 +398,7 @@ export function TradePlanPage() {
         ? "Review action"
         : "Watchlist";
 
-  const holdingCards = holdings.map((holding) => {
+  const holdingCards = useMemo(() => holdings.map((holding) => {
     const latestPrice = getLatestPrice(holding.symbol);
     const planRow = preview.rows.find((row) => row.symbol === holding.symbol);
     const stock = stocks.find((item) => item.symbol === holding.symbol);
@@ -372,22 +408,22 @@ export function TradePlanPage() {
     const pnl = invested > 0 ? currentValue - invested : 0;
     const pnlPct = invested > 0 ? pnl / invested : 0;
     return { ...holding, latestPrice, avgPrice, invested, currentValue, pnl, pnlPct, planRow, stock };
-  });
+  }), [holdings, preview.rows, stocks]);
   const holdingsMarketValue = holdingCards.reduce((sum, holding) => sum + holding.currentValue, 0);
   const holdingsInvestedValue = holdingCards.reduce((sum, holding) => sum + holding.invested, 0);
   const holdingsPnl = holdingsMarketValue - holdingsInvestedValue;
   const holdingsPnlPct = holdingsInvestedValue > 0 ? holdingsPnl / holdingsInvestedValue : 0;
   const modeledHoldingCount = holdingCards.filter((holding) => holding.planRow && holding.planRow.targetWeight > 0).length;
 
-  const cashPlanRows = cashPlan.rows.map((row) => ({
+  const cashPlanRows = useMemo(() => cashPlan.rows.map((row) => ({
     stock: <span className="font-semibold text-slate-900">{row.symbol}</span>,
     action: <Badge color="green">Buy {row.quantity}</Badge>,
     buyZone: formatPriceRange(row.latestPrice),
     amount: formatCurrency(row.buyValue * 1.015),
     reason: row.reason,
-  }));
+  })), [cashPlan.rows]);
 
-  const tableRows = hasHoldings ? preview.rows
+  const tableRows = useMemo(() => hasHoldings ? preview.rows
     .filter((row) => {
       if (filter === "ALL") return true;
       if (filter === "ACTIONS") return row.finalTradeQuantity !== 0 || ["BUY", "ADD", "SELL", "REDUCE", "PAUSED"].includes(row.action);
@@ -409,7 +445,7 @@ export function TradePlanPage() {
         ),
       amount: formatCurrency(row.tradeValue),
       reason: row.reason,
-    })) : [];
+    })) : [], [filter, hasHoldings, preview.rows]);
 
   const handleSave = async () => {
     setSaveMessage("");
@@ -1020,7 +1056,7 @@ export function TradePlanPage() {
                       placeholder={`Try Nifty 200 model stocks: ${modelExampleText}`}
                     />
                   </label>
-                  {customSuggestions.length > 0 && normalizedCustomQuery !== customSuggestions[0]?.symbol && (
+                  {customSuggestions.length > 0 && liveCustomQuery !== customSuggestions[0]?.symbol && (
                     <div className="flex flex-wrap gap-2">
                       {customSuggestions.map((stock) => (
                         <button
@@ -1047,6 +1083,16 @@ export function TradePlanPage() {
                           <p className="text-sm font-bold text-slate-950">{customVerdict.title}</p>
                           <p className="mt-1 text-sm leading-6 text-slate-700">{customVerdict.detail}</p>
                           {selectedCustomStock && <p className="mt-2 text-xs text-slate-500">{selectedCustomStock.name} · {selectedCustomStock.sector || "Sector unavailable"}</p>}
+                          {customReasoningRows.length > 0 && (
+                            <div className="mt-4 rounded-lg border border-white/70 bg-white/70 p-3">
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">AI reasoning</p>
+                              <ul className="mt-2 space-y-1 text-xs leading-5 text-slate-600">
+                                {customReasoningRows.map((reason) => (
+                                  <li key={reason}>- {reason}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </div>
                         <Badge color={customVerdict.tone === "green" ? "green" : customVerdict.tone === "amber" ? "amber" : "slate"}>
                           {customVerdictBadge}
@@ -1109,7 +1155,7 @@ export function TradePlanPage() {
                       />
                     </div>
                   </label>
-                  {customSuggestions.length > 0 && normalizedCustomQuery !== customSuggestions[0]?.symbol && (
+                  {customSuggestions.length > 0 && liveCustomQuery !== customSuggestions[0]?.symbol && (
                     <div className="flex flex-wrap gap-2">
                       {customSuggestions.map((stock) => (
                         <button
@@ -1136,6 +1182,16 @@ export function TradePlanPage() {
                           <p className="text-sm font-bold text-slate-950">{customVerdict.title}</p>
                           <p className="mt-1 text-sm leading-6 text-slate-700">{customVerdict.detail}</p>
                           {selectedCustomStock && <p className="mt-2 text-xs text-slate-500">{selectedCustomStock.name} · {selectedCustomStock.sector || "Sector unavailable"}</p>}
+                          {customReasoningRows.length > 0 && (
+                            <div className="mt-4 rounded-lg border border-white/70 bg-white/70 p-3">
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">AI reasoning</p>
+                              <ul className="mt-2 space-y-1 text-xs leading-5 text-slate-600">
+                                {customReasoningRows.map((reason) => (
+                                  <li key={reason}>- {reason}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </div>
                         <Badge color={customVerdict.tone === "green" ? "green" : customVerdict.tone === "amber" ? "amber" : "slate"}>
                           {customVerdictBadge}
