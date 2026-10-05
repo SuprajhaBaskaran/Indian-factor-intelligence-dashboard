@@ -1,9 +1,9 @@
 {
   "summary": {
     "candidateIndex": "Nifty 500",
-    "auditDate": "2026-10-05T08:04:32.681705+00:00",
+    "auditDate": "2026-10-05T08:25:12.355Z",
     "sourceFile": "data_input/ind_nifty500list.csv",
-    "officialConstituentRows": 495,
+    "officialConstituentRows": 494,
     "currentSystemIndex": "Nifty 200",
     "currentSystemIndexSize": 200,
     "currentModelMonth": "2026-10",
@@ -11,11 +11,11 @@
     "overlapWithCurrentSelectedModelBasket": 59,
     "incrementalSymbolsVsCurrentSelectedModelBasket": 436,
     "stockMetadataCoverage": 243,
-    "monthlyPriceCoverage": 492,
-    "symbolKeyedMonthlyPriceCoverage": 492,
+    "monthlyPriceCoverage": 494,
+    "symbolKeyedMonthlyPriceCoverage": 494,
     "isinKeyedMonthlyPriceCoverage": 0,
-    "strongPriceCoverage": 364,
-    "usableOrStrongPriceCoverage": 480,
+    "strongPriceCoverage": 366,
+    "usableOrStrongPriceCoverage": 482,
     "factorBasketHistoryCoverage": 243,
     "modelTargetHistoryCoverage": 218,
     "fundamentalsRowsAvailable": 200,
@@ -25,9 +25,9 @@
       "warning": "Do not backtest Nifty 500 with today's constituents until historical Nifty 500 membership snapshots are collected."
     },
     "readiness": {
-      "currentDiscovery": "partial",
+      "currentDiscovery": "ready",
       "modelBacktest": "blocked",
-      "reason": "Current Nifty 500 constituents can be audited now, but unbiased model expansion needs historical Nifty 500 membership plus fundamentals/factor coverage for the incremental symbols."
+      "reason": "Current tradable Nifty 500 symbols have exported monthly price coverage for stock search and charts. Dummy exchange placeholder rows are excluded from the user-facing universe. Model expansion still needs historical membership, fundamentals, and backtests."
     },
     "nextSteps": [
       "Collect historical Nifty 500 membership snapshots, not only today's constituent CSV.",
@@ -58,17 +58,7 @@
     "Textiles": 5,
     "Media Entertainment & Publication": 4
   },
-  "missingSamples": {
-    "Automobile and Auto Components": [
-      "BAJAJAUTO"
-    ],
-    "Capital Goods": [
-      "DUMMYHEG"
-    ],
-    "Financial Services": [
-      "NAMINDIA"
-    ]
-  },
+  "missingSamples": {},
   "rows": [
     {
       "companyName": "360 ONE WAM Ltd.",
@@ -295,7 +285,7 @@
       "priceMonthCount": 142,
       "firstPriceMonth": "2015-01",
       "lastPriceMonth": "2026-10",
-      "latestClose": 26840.0,
+      "latestClose": 26840,
       "priceCoverageBand": "strong"
     },
     {
@@ -580,7 +570,7 @@
       "priceMonthCount": 53,
       "firstPriceMonth": "2022-06",
       "lastPriceMonth": "2026-10",
-      "latestClose": 1670.0,
+      "latestClose": 1670,
       "priceCoverageBand": "usable"
     },
     {
@@ -637,7 +627,7 @@
       "priceMonthCount": 142,
       "firstPriceMonth": "2015-01",
       "lastPriceMonth": "2026-10",
-      "latestClose": 3581.0,
+      "latestClose": 3581,
       "priceCoverageBand": "strong"
     },
     {
@@ -713,7 +703,7 @@
       "priceMonthCount": 106,
       "firstPriceMonth": "2018-01",
       "lastPriceMonth": "2026-10",
-      "latestClose": 6500.0,
+      "latestClose": 6500,
       "priceCoverageBand": "strong"
     },
     {
@@ -1036,7 +1026,7 @@
       "priceMonthCount": 142,
       "firstPriceMonth": "2015-01",
       "lastPriceMonth": "2026-10",
-      "latestClose": 5861.0,
+      "latestClose": 5861,
       "priceCoverageBand": "strong"
     },
     {
@@ -1221,13 +1211,13 @@
       "hasStockMetadata": true,
       "hasAnyModelTarget": true,
       "hasFactorBasketHistory": true,
-      "hasMonthlyPrice": false,
-      "priceIdentifier": null,
-      "priceMonthCount": 0,
-      "firstPriceMonth": null,
-      "lastPriceMonth": null,
-      "latestClose": null,
-      "priceCoverageBand": "missing"
+      "hasMonthlyPrice": true,
+      "priceIdentifier": "normalized-symbol",
+      "priceMonthCount": 142,
+      "firstPriceMonth": "2015-01",
+      "lastPriceMonth": "2026-10",
+      "latestClose": 10045,
+      "priceCoverageBand": "strong"
     },
     {
       "companyName": "Bajaj Finance Ltd.",
@@ -1359,7 +1349,7 @@
       "priceMonthCount": 104,
       "firstPriceMonth": "2018-03",
       "lastPriceMonth": "2026-10",
-      "latestClose": 176.0,
+      "latestClose": 176,
       "priceCoverageBand": "strong"
     },
     {
@@ -1910,7 +1900,7 @@
       "priceMonthCount": 142,
       "firstPriceMonth": "2015-01",
       "lastPriceMonth": "2026-10",
-      "latestClose": 711.0,
+      "latestClose": 711,
       "priceCoverageBand": "strong"
     },
     {
@@ -2499,7 +2489,7 @@
       "priceMonthCount": 68,
       "firstPriceMonth": "2021-03",
       "lastPriceMonth": "2026-10",
-      "latestClose": 10266.0,
+      "latestClose": 10266,
       "priceCoverageBand": "strong"
     },
     {
@@ -2518,7 +2508,7 @@
       "priceMonthCount": 99,
       "firstPriceMonth": "2018-08",
       "lastPriceMonth": "2026-10",
-      "latestClose": 1239.0,
+      "latestClose": 1239,
       "priceCoverageBand": "strong"
     },
     {
@@ -2746,7 +2736,7 @@
       "priceMonthCount": 54,
       "firstPriceMonth": "2022-05",
       "lastPriceMonth": "2026-10",
-      "latestClose": 400.0,
+      "latestClose": 400,
       "priceCoverageBand": "usable"
     },
     {
@@ -2845,25 +2835,6 @@
       "priceCoverageBand": "strong"
     },
     {
-      "companyName": "Dummy HEG Ltd.",
-      "industry": "Capital Goods",
-      "symbol": "DUMMYHEG",
-      "rawSymbol": "DUMMYHEG",
-      "series": "EQ",
-      "isin": "DUM545A01024",
-      "inCurrentSelectedModelBasket": false,
-      "hasStockMetadata": false,
-      "hasAnyModelTarget": false,
-      "hasFactorBasketHistory": false,
-      "hasMonthlyPrice": false,
-      "priceIdentifier": null,
-      "priceMonthCount": 0,
-      "firstPriceMonth": null,
-      "lastPriceMonth": null,
-      "latestClose": null,
-      "priceCoverageBand": "missing"
-    },
-    {
       "companyName": "E.I.D. Parry (India) Ltd.",
       "industry": "Fast Moving Consumer Goods",
       "symbol": "EIDPARRY",
@@ -2936,7 +2907,7 @@
       "priceMonthCount": 142,
       "firstPriceMonth": "2015-01",
       "lastPriceMonth": "2026-10",
-      "latestClose": 440.0,
+      "latestClose": 440,
       "priceCoverageBand": "strong"
     },
     {
@@ -3240,7 +3211,7 @@
       "priceMonthCount": 84,
       "firstPriceMonth": "2019-08",
       "lastPriceMonth": "2026-10",
-      "latestClose": 16800.0,
+      "latestClose": 16800,
       "priceCoverageBand": "strong"
     },
     {
@@ -3354,7 +3325,7 @@
       "priceMonthCount": 142,
       "firstPriceMonth": "2015-01",
       "lastPriceMonth": "2026-10",
-      "latestClose": 1315.0,
+      "latestClose": 1315,
       "priceCoverageBand": "strong"
     },
     {
@@ -3430,7 +3401,7 @@
       "priceMonthCount": 142,
       "firstPriceMonth": "2015-01",
       "lastPriceMonth": "2026-10",
-      "latestClose": 6899.0,
+      "latestClose": 6899,
       "priceCoverageBand": "strong"
     },
     {
@@ -4133,7 +4104,7 @@
       "priceMonthCount": 142,
       "firstPriceMonth": "2015-01",
       "lastPriceMonth": "2026-10",
-      "latestClose": 33470.0,
+      "latestClose": 33470,
       "priceCoverageBand": "strong"
     },
     {
@@ -4361,7 +4332,7 @@
       "priceMonthCount": 142,
       "firstPriceMonth": "2015-01",
       "lastPriceMonth": "2026-10",
-      "latestClose": 17.0,
+      "latestClose": 17,
       "priceCoverageBand": "strong"
     },
     {
@@ -4855,7 +4826,7 @@
       "priceMonthCount": 142,
       "firstPriceMonth": "2015-01",
       "lastPriceMonth": "2026-10",
-      "latestClose": 4952.0,
+      "latestClose": 4952,
       "priceCoverageBand": "strong"
     },
     {
@@ -5159,7 +5130,7 @@
       "priceMonthCount": 67,
       "firstPriceMonth": "2021-04",
       "lastPriceMonth": "2026-10",
-      "latestClose": 638.0,
+      "latestClose": 638,
       "priceCoverageBand": "strong"
     },
     {
@@ -5216,7 +5187,7 @@
       "priceMonthCount": 142,
       "firstPriceMonth": "2015-01",
       "lastPriceMonth": "2026-10",
-      "latestClose": 1071.0,
+      "latestClose": 1071,
       "priceCoverageBand": "strong"
     },
     {
@@ -5368,7 +5339,7 @@
       "priceMonthCount": 48,
       "firstPriceMonth": "2022-11",
       "lastPriceMonth": "2026-10",
-      "latestClose": 3399.0,
+      "latestClose": 3399,
       "priceCoverageBand": "usable"
     },
     {
@@ -5406,7 +5377,7 @@
       "priceMonthCount": 47,
       "firstPriceMonth": "2022-12",
       "lastPriceMonth": "2026-10",
-      "latestClose": 832.0,
+      "latestClose": 832,
       "priceCoverageBand": "usable"
     },
     {
@@ -6451,7 +6422,7 @@
       "priceMonthCount": 140,
       "firstPriceMonth": "2015-01",
       "lastPriceMonth": "2026-10",
-      "latestClose": 21505.0,
+      "latestClose": 21505,
       "priceCoverageBand": "strong"
     },
     {
@@ -6465,13 +6436,13 @@
       "hasStockMetadata": false,
       "hasAnyModelTarget": false,
       "hasFactorBasketHistory": false,
-      "hasMonthlyPrice": false,
-      "priceIdentifier": null,
-      "priceMonthCount": 0,
-      "firstPriceMonth": null,
-      "lastPriceMonth": null,
-      "latestClose": null,
-      "priceCoverageBand": "missing"
+      "hasMonthlyPrice": true,
+      "priceIdentifier": "normalized-symbol",
+      "priceMonthCount": 82,
+      "firstPriceMonth": "2020-01",
+      "lastPriceMonth": "2026-10",
+      "latestClose": 1046,
+      "priceCoverageBand": "strong"
     },
     {
       "companyName": "Nuvama Wealth Management Ltd.",
@@ -6641,7 +6612,7 @@
       "priceMonthCount": 21,
       "firstPriceMonth": "2025-02",
       "lastPriceMonth": "2026-10",
-      "latestClose": 1508.0,
+      "latestClose": 1508,
       "priceCoverageBand": "usable"
     },
     {
@@ -6755,7 +6726,7 @@
       "priceMonthCount": 118,
       "firstPriceMonth": "2016-11",
       "lastPriceMonth": "2026-10",
-      "latestClose": 1092.0,
+      "latestClose": 1092,
       "priceCoverageBand": "strong"
     },
     {
@@ -6774,7 +6745,7 @@
       "priceMonthCount": 39,
       "firstPriceMonth": "2023-06",
       "lastPriceMonth": "2026-10",
-      "latestClose": 22025.0,
+      "latestClose": 22025,
       "priceCoverageBand": "usable"
     },
     {
@@ -7173,7 +7144,7 @@
       "priceMonthCount": 73,
       "firstPriceMonth": "2020-10",
       "lastPriceMonth": "2026-10",
-      "latestClose": 3573.0,
+      "latestClose": 3573,
       "priceCoverageBand": "strong"
     },
     {
@@ -7895,7 +7866,7 @@
       "priceMonthCount": 65,
       "firstPriceMonth": "2021-06",
       "lastPriceMonth": "2026-10",
-      "latestClose": 805.0,
+      "latestClose": 805,
       "priceCoverageBand": "strong"
     },
     {
@@ -8560,7 +8531,7 @@
       "priceMonthCount": 140,
       "firstPriceMonth": "2015-01",
       "lastPriceMonth": "2026-10",
-      "latestClose": 4861.0,
+      "latestClose": 4861,
       "priceCoverageBand": "strong"
     },
     {
@@ -8788,7 +8759,7 @@
       "priceMonthCount": 142,
       "firstPriceMonth": "2015-01",
       "lastPriceMonth": "2026-10",
-      "latestClose": 530.0,
+      "latestClose": 530,
       "priceCoverageBand": "strong"
     },
     {
@@ -8845,7 +8816,7 @@
       "priceMonthCount": 51,
       "firstPriceMonth": "2022-08",
       "lastPriceMonth": "2026-10",
-      "latestClose": 1111.0,
+      "latestClose": 1111,
       "priceCoverageBand": "usable"
     },
     {
@@ -9149,7 +9120,7 @@
       "priceMonthCount": 62,
       "firstPriceMonth": "2021-09",
       "lastPriceMonth": "2026-10",
-      "latestClose": 1428.0,
+      "latestClose": 1428,
       "priceCoverageBand": "strong"
     },
     {
@@ -9358,7 +9329,7 @@
       "priceMonthCount": 55,
       "firstPriceMonth": "2022-04",
       "lastPriceMonth": "2026-10",
-      "latestClose": 2241.0,
+      "latestClose": 2241,
       "priceCoverageBand": "usable"
     },
     {

@@ -26,12 +26,18 @@ def normalize_symbol(symbol: str) -> str:
     return symbol.strip().upper().replace("-", "")
 
 
+def is_tradable_constituent(row: dict) -> bool:
+    symbol = str(row.get("rawSymbol") or row.get("Symbol") or row.get("symbol") or "").strip().upper()
+    isin = str(row.get("isin") or row.get("ISIN Code") or "").strip().upper()
+    return bool(symbol) and not symbol.startswith("DUMMY") and not isin.startswith("DUM")
+
+
 def load_nifty500_symbols() -> dict[str, str]:
     with NIFTY500_CSV.open(newline="", encoding="utf-8-sig") as stream:
         return {
             row["Symbol"].strip().upper(): normalize_symbol(row["Symbol"])
             for row in csv.DictReader(stream)
-            if row.get("Symbol") and (row.get("Series") or "EQ").strip() == "EQ"
+            if row.get("Symbol") and (row.get("Series") or "EQ").strip() == "EQ" and is_tradable_constituent(row)
         }
 
 
@@ -105,6 +111,7 @@ def coverage_band(count: int) -> str:
 
 
 def refresh_audit_from_prices(audit: dict, prices: list[dict]) -> dict:
+    audit["rows"] = [row for row in audit["rows"] if is_tradable_constituent(row)]
     by_symbol: dict[str, list[dict]] = {}
     for price in prices:
         by_symbol.setdefault(str(price["symbol"]).upper(), []).append(price)
@@ -131,6 +138,7 @@ def refresh_audit_from_prices(audit: dict, prices: list[dict]) -> dict:
             usable_or_strong += 1
 
     summary = audit["summary"]
+    summary["officialConstituentRows"] = len(audit["rows"])
     summary["auditDate"] = pd.Timestamp.utcnow().isoformat()
     summary["monthlyPriceCoverage"] = symbol_price_coverage
     summary["symbolKeyedMonthlyPriceCoverage"] = symbol_price_coverage
