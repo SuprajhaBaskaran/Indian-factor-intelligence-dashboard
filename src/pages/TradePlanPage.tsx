@@ -20,8 +20,6 @@ import {
 import { useUserData, type UserHolding as PersistedHolding } from "@/lib/userData";
 import { getDecisionSnapshot } from "@/lib/product";
 
-export { TradePlanPage } from "./TradePlanPagePro";
-
 type TradeMode = "fresh" | "rebalance";
 
 function getHoldingInputIssues(text: string): string[] {
@@ -48,7 +46,7 @@ function createBlankHoldingRows(rows: UserHolding[]): UserHolding[] {
   return rows.length ? rows : [{ symbol: "", quantity: 0, avgPrice: undefined }];
 }
 
-export function LegacyTradePlanPage() {
+export function TradePlanPage() {
   const userData = useUserData();
   const { user } = useAuth();
   const experience = useMemo(() => user ? readUserExperience(user.id) : null, [user]);
