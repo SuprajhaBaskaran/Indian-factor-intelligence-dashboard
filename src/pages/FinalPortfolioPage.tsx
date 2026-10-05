@@ -86,7 +86,7 @@ export function FinalPortfolioPage({ onNavigate }: { onNavigate?: (page: PageId)
       {!loading && !error && missingPrices.length > 0 && <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Current value and return are unavailable for {missingPrices.length} holding{missingPrices.length === 1 ? "" : "s"} because no usable price is present. A partial total is not shown.</div>}
 
       {/* ── PORTFOLIO SUMMARY ────────────────────────────────────────────── */}
-      {!loading && !error && holdings.length === 0 && cash === 0 && <div className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-600"><p className="font-semibold text-slate-900">Your portfolio is empty</p><p className="mt-1">{journey === "new-investor" ? "When you are ready to invest, My Plan can turn an amount into a model-based plan." : "Add or import your current holdings in My Plan to compare them with the model."}</p>{onNavigate && <button type="button" onClick={() => onNavigate("trade-plan")} className="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">Go to My Plan</button>}</div>}
+      {!loading && !error && holdings.length === 0 && cash === 0 && <div className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-600"><p className="font-semibold text-slate-900">Your portfolio is empty</p><p className="mt-1">{journey === "new-investor" ? "This is normal before your first buy. My Plan can read your amount, explain whether the model says buy or wait, and save the draft." : "Add or import your current holdings in My Plan to compare them with the model."}</p><div className="mt-4 grid gap-3 md:grid-cols-3"><InfoTile label="Before holdings" value="No P&L yet" detail="The app cannot assess gains, weights, or trade values until a holding is saved." /><InfoTile label="First step" value="Use My Plan" detail="Generate a draft recommendation or add the stocks you already own." /><InfoTile label="After saving" value="Portfolio comparison" detail="This page compares your weights with the model target weights." /></div>{onNavigate && <button type="button" onClick={() => onNavigate("trade-plan")} className="mt-4 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">Go to My Plan</button>}</div>}
       {!loading && !error && (holdings.length > 0 || cash > 0) && <>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -151,7 +151,8 @@ export function FinalPortfolioPage({ onNavigate }: { onNavigate?: (page: PageId)
         ) : (
           <div className="rounded-xl border border-blue-100 bg-blue-50 p-5 text-sm text-blue-900">
             <p className="font-semibold">No holdings yet</p>
-            <p className="mt-1">Go to the My Plan page to add your holdings and generate a personalized trade plan.</p>
+            <p className="mt-1">Cash is saved, but no stocks are saved yet. Portfolio assessment starts after at least one holding is added; until then, use My Plan to review whether fresh cash should be deployed or held.</p>
+            {onNavigate && <button type="button" onClick={() => onNavigate("trade-plan")} className="mt-3 rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800">Open My Plan</button>}
           </div>
         )}
       </Card>
@@ -183,6 +184,16 @@ export function FinalPortfolioPage({ onNavigate }: { onNavigate?: (page: PageId)
         </Card>
       )}
       </>}
+    </div>
+  );
+}
+
+function InfoTile({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-lg bg-slate-50 p-3">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className="mt-1 font-semibold text-slate-900">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p>
     </div>
   );
 }

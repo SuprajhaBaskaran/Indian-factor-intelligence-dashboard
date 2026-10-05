@@ -78,7 +78,9 @@ export function TradePlanPage() {
   const userData = useUserData();
   const { user } = useAuth();
   const experience = user ? readUserExperience(user.id) : null;
-  const [mode, setMode] = useState<TradeMode>(() => experience?.hasInvestments ? "rebalance" : "fresh");
+  const hasExistingInvestments = Boolean(experience?.hasInvestments);
+  const pendingFreshMoney = experience?.freshMoneyPending ? experience.freshMoneyAmount : 0;
+  const [mode, setMode] = useState<TradeMode>(() => hasExistingInvestments ? "rebalance" : "fresh");
   const [holdingsText, setHoldingsText] = useState("");
   const [bulkEntryText, setBulkEntryText] = useState("");
   const [cashText, setCashText] = useState("0");
@@ -96,11 +98,10 @@ export function TradePlanPage() {
     Promise.all([userData.getHoldings(), userData.getCash()]).then(([savedHoldings, savedCash]) => {
       if (cancelled) return;
       setHoldingsText(holdingsToText(savedHoldings));
-      const pendingFreshMoney = experience?.freshMoneyPending ? experience.freshMoneyAmount : 0;
       setCashText(String(savedCash + pendingFreshMoney));
       setSavedInput({ holdings: holdingsToText(savedHoldings), cash: String(savedCash) });
       setDataLoading(false);
-      if (!experience?.hasInvestments && savedHoldings.length > 0) setMode("rebalance");
+      if (!hasExistingInvestments && savedHoldings.length > 0) setMode("rebalance");
       if (savedCash === 0 && pendingFreshMoney === 0) void userData.getPreferences().then((prefs) => {
         if (!cancelled && prefs.preferredCapital && prefs.preferredCapital > 0) setCashText(String(prefs.preferredCapital));
       }).catch(() => undefined);
@@ -108,7 +109,7 @@ export function TradePlanPage() {
       if (!cancelled) { setLoadError(error instanceof Error ? error.message : "Could not load saved portfolio."); setDataLoading(false); }
     });
     return () => { cancelled = true; };
-  }, [userData, experience?.hasInvestments]);
+  }, [userData, hasExistingInvestments, pendingFreshMoney]);
 
   useEffect(() => {
     setRecommendationGenerated(false);
@@ -234,7 +235,7 @@ export function TradePlanPage() {
         signalDate: `${snapshot.latestMonth || new Date().toISOString().slice(0, 7)}-01`,
         items: planItems,
       });
-      if (user?.id && experience?.freshMoneyPending) markFreshMoneyIncluded(user.id);
+      if (user?.id && pendingFreshMoney > 0) markFreshMoneyIncluded(user.id);
       setSavedInput({ holdings: holdingsToText(holdings), cash: cashText });
       setSaveMessage(mode === "fresh" ? "Your investment amount and draft plan were saved to your account." : "Your holdings, cash, and draft plan were saved to your account.");
     } catch (error) {
@@ -679,10 +680,26 @@ export function TradePlanPage() {
                       <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">{freshTone.detail}</p>
                     </div>
                     <Badge color={cashPlan.rows.length > 0 ? "green" : "amber"}>
-                      {cashPlan.rows.length > 0 ? `${cashPlan.rows.length} buys ready` : "No buy order"}
+                      {cashPlan.rows.length > 0 ? `${cashPlan.rows.length} buys ready` : "Wait / no buy today"}
                     </Badge>
                   </div>
                   <p className="mt-4 text-sm leading-6 text-slate-700">{cashPlan.message}</p>
+                  {cashPlan.rows.length === 0 && (
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <div className="rounded-lg border border-slate-200 bg-white/80 p-3">
+                        <p className="text-xs font-semibold text-slate-500">Why no buy?</p>
+                        <p className="mt-1 text-sm leading-5 text-slate-700">
+                          Today the monthly gate is not approving fresh deployment. The model can still like stocks, but it is saying to keep cash ready instead of forcing a trade.
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-white/80 p-3">
+                        <p className="text-xs font-semibold text-slate-500">How portfolio assessment starts</p>
+                        <p className="mt-1 text-sm leading-5 text-slate-700">
+                          With no holdings, Portfolio has nothing to compare yet. Once you save holdings or cash here, the app compares your account against model target weights.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <div className="mt-4 grid min-w-0 gap-3 lg:grid-cols-3">
                     <div className="rounded-lg bg-white/75 p-3">
                       <p className="text-xs font-semibold text-slate-500">Model month</p>

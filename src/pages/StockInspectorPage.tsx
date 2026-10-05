@@ -29,7 +29,30 @@ export function StockInspectorPage() {
   const signals = useMemo(() => getSignalEvents(normalized).slice(-20).reverse(), [normalized]);
   const prices = getStockPrices(normalized);
   const latestPricePoint = prices[prices.length - 1];
-  const latestPrice = latestPricePoint?.adjusted_close || latestPricePoint?.close || row?.latestPrice || 0;
+  const latestSignalPrice = signals.find((signal) => Number(signal.signal_price) > 0)?.signal_price || 0;
+  const latestPrice = latestPricePoint?.adjusted_close || latestPricePoint?.close || row?.latestPrice || latestSignalPrice || 0;
+  const priceSource = latestPricePoint
+    ? `monthly price file${latestPricePoint.month ? ` · ${latestPricePoint.month}` : ""}`
+    : latestSignalPrice > 0
+      ? "latest model signal price"
+      : "";
+  const hasPortfolioContext = holdings.length > 0 || cash > 0;
+  const currentModelWeight = row?.targetWeight || signals[0]?.new_weight || 0;
+  const latestSignal = signals[0]?.signal_type || (currentModelWeight > 0 ? "IN MODEL" : "WATCH");
+  const actionText = row
+    ? row.finalTradeQuantity > 0
+      ? `Buy ${row.finalTradeQuantity}`
+      : row.finalTradeQuantity < 0
+        ? `Sell ${Math.abs(row.finalTradeQuantity)}`
+        : hasPortfolioContext
+          ? "No trade now"
+          : "Add cash or holdings first"
+    : "No active plan row";
+  const actionExplanation = row
+    ? !hasPortfolioContext
+      ? "You have no saved holdings or plan cash yet, so this page can show the model view but cannot calculate your personal quantity."
+      : row.reason
+    : "This stock is not in the current model target set. Use the signal history only as research context.";
 
   return (
     <div className="space-y-6">
@@ -56,7 +79,7 @@ export function StockInspectorPage() {
           </label>
           <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
             Price: <span className="font-semibold text-slate-900">{latestPrice > 0 ? formatCurrency(latestPrice) : "Unavailable"}</span>
-            {latestPricePoint?.month && <span className="ml-2 text-xs text-slate-500">as of month {latestPricePoint.month}</span>}
+            {priceSource && <span className="ml-2 text-xs text-slate-500">{priceSource}</span>}
           </div>
         </div>
       </Card>
@@ -76,24 +99,20 @@ export function StockInspectorPage() {
                 )}
                 <Badge color="slate">{row.sector}</Badge>
               </div>
+              {!hasPortfolioContext && (
+                <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm leading-6 text-blue-900">
+                  No saved portfolio yet. Enter cash in My Plan or add holdings, then this card will calculate your exact quantity and trade value.
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <Metric label="You have" value={`${row.currentQuantity} shares`} />
-                <Metric label="Model wants" value={`${row.targetQuantity} shares`} />
-          <Metric
-                  label="Current model action"
-                  value={
-                    row.finalTradeQuantity > 0
-                      ? `Buy ${row.finalTradeQuantity}`
-                      : row.finalTradeQuantity < 0
-                      ? `Sell ${Math.abs(row.finalTradeQuantity)}`
-                      : "No trade"
-                  }
-                />
-                <Metric label="Trade value" value={latestPrice > 0 ? formatCurrency(row.tradeValue) : "Unavailable"} />
+                <Metric label="Model weight" value={formatPercent(currentModelWeight, 2)} />
+                <Metric label="Personal action" value={actionText} />
+                <Metric label="Trade value" value={hasPortfolioContext && latestPrice > 0 ? formatCurrency(row.tradeValue) : "Needs plan input"} />
               </div>
               <div className="rounded-lg bg-slate-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Why</p>
-                <p className="mt-2 text-sm leading-6 text-slate-700">{row.reason}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">{actionExplanation}</p>
                 <p className="mt-2 text-xs text-slate-500">Factor source: {row.factorReason}</p>
                 <p className="mt-1 text-xs text-slate-500">
                   <TermTooltip term="target weight">Target weight</TermTooltip>: {formatPercent(row.targetWeight, 2)}
@@ -103,14 +122,19 @@ export function StockInspectorPage() {
           </Card>
 
           <Card title="Signal History" subtitle="Latest monthly model actions">
+            <div className="mb-4 grid gap-3 md:grid-cols-3">
+              <Readout label="Latest model signal" value={latestSignal} detail="What changed in the model target list." />
+              <Readout label="Old wt -> new wt" value="Previous -> current target" detail="These are model portfolio weights, not your holding size." />
+              <Readout label="How to use it" value="Context, not a trade ticket" detail="Your personal action comes from My Plan after cash/holdings are saved." />
+            </div>
             <Table
               maxHeight="420px"
               columns={[
                 { key: "month", label: "Month" },
                 { key: "signal", label: "Signal", align: "center" },
                 { key: "price", label: "Price", align: "right" },
-                { key: "old", label: "Old Wt", align: "right" },
-                { key: "new", label: "New Wt", align: "right" },
+                { key: "old", label: "Previous model wt", align: "right" },
+                { key: "new", label: "New model wt", align: "right" },
                 { key: "factor", label: "Factor" },
               ]}
               data={signals.map((signal) => ({
@@ -138,6 +162,16 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="rounded-lg bg-slate-50 p-3">
       <p className="text-xs text-slate-500">{label}</p>
       <p className="mt-1 text-base font-bold text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+function Readout({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-lg bg-slate-50 p-3">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-bold text-slate-900">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p>
     </div>
   );
 }
