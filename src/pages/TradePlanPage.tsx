@@ -810,7 +810,7 @@ export function TradePlanPage() {
                     </thead>
                     <tbody>
                       {manualRows.map((row, index) => (
-                        <tr key={`${row.symbol}-${index}`} className="border-t border-slate-100">
+                        <tr key={`holding-row-${index}`} className="border-t border-slate-100">
                           <td className="px-3 py-2">
                             <HoldingSymbolInput
                               value={row.symbol}
