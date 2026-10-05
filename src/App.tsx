@@ -13,7 +13,8 @@ import { AdminStatusPage } from "@/pages/AdminStatusPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
 import { loadDashboardData } from "@/lib/data";
 import { logBackendStatus } from "@/lib/supabase";
-import { readUserExperience } from "@/lib/userExperience";
+import { readUserExperience, saveUserExperience } from "@/lib/userExperience";
+import { useUserData } from "@/lib/userData";
 
 const pathFor: Record<PageId, string> = {
   "command-center": "/",
@@ -50,8 +51,9 @@ function AppInner() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
   const { user, loading, isDevelopmentUser, isAdmin } = useAuth();
+  const userData = useUserData();
   const userId = user?.id;
   const welcomedAdmin = useRef<string | null>(null);
 
@@ -73,8 +75,39 @@ function AppInner() {
   }, []);
 
   useEffect(() => {
-    setNeedsOnboarding(Boolean(userId && !isAdmin && !readUserExperience(userId)));
-  }, [isAdmin, userId]);
+    let active = true;
+    if (!userId || isAdmin) {
+      setNeedsOnboarding(false);
+      return () => { active = false; };
+    }
+
+    const localExperience = readUserExperience(userId);
+    if (localExperience) {
+      setNeedsOnboarding(false);
+      return () => { active = false; };
+    }
+
+    setNeedsOnboarding(null);
+    Promise.all([userData.getHoldings(), userData.getCash(), userData.getPreferences()])
+      .then(([holdings, cash, preferences]) => {
+        if (!active) return;
+        const hasSavedPortfolio = holdings.length > 0 || cash > 0 || Boolean(preferences.preferredCapital);
+        if (hasSavedPortfolio) {
+          saveUserExperience(userId, {
+            hasInvestments: holdings.length > 0,
+            freshMoneyAmount: cash > 0 ? cash : preferences.preferredCapital || 0,
+            freshMoneyPending: holdings.length === 0 && cash > 0,
+            riskPreference: preferences.riskPreference,
+          });
+        }
+        setNeedsOnboarding(!hasSavedPortfolio);
+      })
+      .catch(() => {
+        if (active) setNeedsOnboarding(true);
+      });
+
+    return () => { active = false; };
+  }, [isAdmin, userData, userId]);
 
   useEffect(() => {
     if (!user) {
@@ -104,7 +137,7 @@ function AppInner() {
   if (loading) return <div className="grid min-h-screen place-items-center bg-slate-50 text-sm text-slate-600">Restoring your secure session…</div>;
   if (!user) return <LoginPage configurationError={isDevelopmentUser ? "Supabase is not configured. Authentication and saved data are unavailable." : undefined} onLoginSuccess={() => { window.history.replaceState(null, "", "/"); setRoute("command-center"); }} />;
   if (error) return <div className="grid min-h-screen place-items-center bg-slate-50 p-6"><section className="max-w-md rounded-2xl border border-red-200 bg-white p-7"><h1 className="text-lg font-semibold">Published data is unavailable</h1><p className="mt-2 text-sm text-slate-600">Model values are withheld until the required data snapshots load.</p><p className="mt-3 text-xs text-slate-500">{error}</p><button className="mt-5 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white" onClick={() => setAttempt((value) => value + 1)}>Retry</button></section></div>;
-  if (!ready) return <div className="min-h-screen bg-slate-50 p-6"><div className="mx-auto max-w-5xl space-y-4 pt-20">{[1, 2, 3].map((item) => <div key={item} className="h-24 animate-pulse rounded-2xl bg-white shadow-sm" />)}</div></div>;
+  if (!ready || needsOnboarding === null) return <div className="min-h-screen bg-slate-50 p-6"><div className="mx-auto max-w-5xl space-y-4 pt-20">{[1, 2, 3].map((item) => <div key={item} className="h-24 animate-pulse rounded-2xl bg-white shadow-sm" />)}</div></div>;
   if (needsOnboarding && !isAdmin) return <OnboardingPage user={user} onComplete={() => setNeedsOnboarding(false)} />;
 
   const content = route === "command-center"
