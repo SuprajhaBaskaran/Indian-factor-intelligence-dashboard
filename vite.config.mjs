@@ -12,4 +12,17 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ["lucide-react"],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("react") || id.includes("react-dom")) return "react";
+          if (id.includes("@supabase")) return "supabase";
+          if (id.includes("lucide-react")) return "icons";
+          return "vendor";
+        },
+      },
+    },
+  },
 });

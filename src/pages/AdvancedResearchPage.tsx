@@ -9,7 +9,6 @@ import { ModelIntegrityPage } from "./ModelIntegrityPage";
 import { ModelReportPage } from "./ModelReportPage";
 import { SignalsPage } from "./SignalsPage";
 import { SimulationPage } from "./SimulationPage";
-import { OptimizerPage } from "./OptimizerPage";
 import { FlaskConical, ShieldCheck, SlidersHorizontal } from "lucide-react";
 
 type ResearchSection =
@@ -17,7 +16,6 @@ type ResearchSection =
   | "regime"
   | "factors"
   | "allocation"
-  | "optimizer"
   | "news"
   | "backtest"
   | "integrity"
@@ -30,7 +28,6 @@ const SECTIONS: { id: ResearchSection; label: string; description: string }[] = 
   { id: "regime", label: "Regime Analysis", description: "GMM clusters, walk-forward probabilities, transition matrix, ANOVA separation" },
   { id: "factors", label: "Factor Analysis", description: "Factor scores, baskets, returns, diagnostics, redundancy" },
   { id: "allocation", label: "Allocation Diagnostics", description: "Factor weights, optimizer inputs, decision gate, constraints" },
-  { id: "optimizer", label: "Ensemble Optimizer", description: "Bayesian-tuned weighted ensemble, winner baseline, selected parameters" },
   { id: "news", label: "News & Narrative", description: "RSS ingestion, entity tagging, relevance-weighted sentiment, stress scores" },
   { id: "backtest", label: "Backtest Diagnostics", description: "Stock-level backtest, cost ladder, confidence intervals, rolling windows" },
   { id: "integrity", label: "Model Integrity", description: "Experiment manifest, run fingerprint, assumptions, caveats, determinism" },
@@ -40,7 +37,7 @@ const SECTIONS: { id: ResearchSection; label: string; description: string }[] = 
 ];
 
 const SECTION_GROUPS: { label: string; icon: ReactNode; ids: ResearchSection[] }[] = [
-  { label: "Current model", icon: <SlidersHorizontal className="h-4 w-4" />, ids: ["regime", "factors", "optimizer", "allocation", "news", "signals"] },
+  { label: "Current model", icon: <SlidersHorizontal className="h-4 w-4" />, ids: ["regime", "factors", "allocation", "news", "signals"] },
   { label: "Validation", icon: <ShieldCheck className="h-4 w-4" />, ids: ["backtest", "simulation"] },
   { label: "Research & governance", icon: <FlaskConical className="h-4 w-4" />, ids: ["integrity", "model-report"] },
 ];
@@ -110,7 +107,6 @@ export function AdvancedResearchPage() {
 
       {section === "regime" && <RegimePage />}
       {section === "factors" && <FactorPage />}
-      {section === "optimizer" && <OptimizerPage />}
       {section === "allocation" && <AllocationPage />}
       {section === "news" && <NewsPage />}
       {section === "backtest" && <BacktestPage />}

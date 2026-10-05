@@ -1,1 +1,602 @@
-{"schema": "experiment_manifest/1", "run": {"started_at": "2026-10-04T14:31:06.710068+00:00", "finished_at": "2026-10-04T14:31:18.053561+00:00", "runtime_seconds": 11.32, "fingerprint": "34c58c79012d72db27241c8ce2492fa28a710f313de1875364092b4347b940a8", "fingerprint_covers": ["source database path and per-table row counts", "SHA-256 of every pipeline module", "every assumption listed below", "SHA-256 of the news article set actually used"], "fingerprint_note": "Two runs with the same fingerprint produced the same outputs. A different fingerprint means an input, a module or an assumption moved, and the results are not comparable without saying so."}, "environment": {"python": "3.11.16", "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39", "machine": "x86_64"}, "inputs": {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/data_input/processed_financial_data.sqlite", "exists": true, "bytes": 15671296, "tables": {"fundamentals_monthly": {"present": true, "rows": 25490, "month_min": "2014-01-31", "month_max": "2026-09-30", "months": 153}, "factor_scores_monthly": {"present": true, "rows": 26066, "month_min": "2014-01-31", "month_max": "2026-10-31", "months": 154}, "stock_prices_monthly": {"present": true, "rows": 26066, "month_min": "2014-01-31", "month_max": "2026-10-31", "months": 154}, "stock_prices_daily": {"present": true, "rows": 1512}, "market_index_monthly": {"present": true, "rows": 308, "month_min": "2014-01-31", "month_max": "2026-10-31", "months": 154}, "market_index_daily": {"present": true, "rows": 14}, "sector_index_monthly": {"present": true, "rows": 1937, "month_min": "2015-11-30", "month_max": "2026-09-30", "months": 131}, "macro_monthly": {"present": true, "rows": 414, "month_min": "1992-03-31", "month_max": "2026-08-31", "months": 414}, "regime_features_monthly": {"present": true, "rows": 154, "month_min": "2014-01-31", "month_max": "2026-10-31", "months": 154}, "news_articles_raw": {"present": true, "rows": 510}, "news_features_monthly": {"present": true, "rows": 61, "month_min": "1998-03-31", "month_max": "2026-09-30", "months": 61}, "data_inventory": {"present": true, "rows": 51}}}, "code": {"dir": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts", "modules": [{"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/coverage_audit.py", "exists": true, "bytes": 5770, "sha256": "8bc895ea8e6278aa6d8ab79299edf74600c73d115c417e06e45b368c05a57574"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/daily_eod_refresh.py", "exists": true, "bytes": 35545, "sha256": "6ce2444c58e752d88ed1958d599a7d12fb360b1d3c7723a30e1b0eab7b343fba"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/data_freshness.py", "exists": true, "bytes": 15716, "sha256": "853d429646118cfa08aec7eceea78e8c369f43c576c629b909900ca8c15c4cd4"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/experiment_manifest.py", "exists": true, "bytes": 43100, "sha256": "4ae3b21c3b2ea7cf2a68b7f8f2807a8c8d20e5c573ee4871ad3f149142970fac"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/factor_engine.py", "exists": true, "bytes": 11257, "sha256": "06bb8d042de9ee239ed32f50c1c48a0151c432cd36a5fe87974409f6505c9501"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/forward_outlook.py", "exists": true, "bytes": 12615, "sha256": "b0e4af69a7325beeeb895b32be24edf6b3c837eae9d41bf5a66c4c4fc3460f6f"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/news_history.py", "exists": true, "bytes": 4003, "sha256": "4358b4cc478b156f943018e68c5699f445fe1b88a896dad6bfd9e189eecb64f4"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/news_relevance.py", "exists": true, "bytes": 7025, "sha256": "c863177e82fcdf87e2b87bbe0951d14ac9eaa1111735876e46fca7d073030c41"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/nse_universe.py", "exists": true, "bytes": 6444, "sha256": "1d91a9a03193cb79423d4d1b30f2c3146f896992784fa8bfce8e847fbcb4fd24"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/performance_stats.py", "exists": true, "bytes": 31490, "sha256": "2f8e3b39162a8f5c5fd0d75c58f062c3928d5527a2fd6663f834a278d9fe75ea"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/point_in_time.py", "exists": true, "bytes": 6240, "sha256": "2c652cf01ffa4b626ad97436c1adcead54654313ae209d9cbc064400f10374ea"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/portfolio_construction.py", "exists": true, "bytes": 15372, "sha256": "ab2cd5b93bb92d108c05fb0c9caac9d6ebc1140f6d170dcb6983542c575f9df6"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/price_sanity.py", "exists": true, "bytes": 4343, "sha256": "9e737d4310dcf3802cd51ec96349503bd829e2f4e0a83e6280183620d508c887"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/regime_model.py", "exists": true, "bytes": 11861, "sha256": "832e9cf37cb34fa305f7430059a3af11a98e9300350bd7d50f1b0f44cc7f98fc"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/repair_eod_aggregates.py", "exists": true, "bytes": 2684, "sha256": "d59fa8af78689f24f05b59a2dc40b6a9c3ad782a8c32fae98e19b3ed417f39ec"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/repair_fii_dii.py", "exists": true, "bytes": 6873, "sha256": "d0e1ee9eb6ac86ce73f282f57b8c8e4d04ad415ed90d386f3a2d92014736a5cc"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/risk_free.py", "exists": true, "bytes": 7862, "sha256": "0acfe49659e2c82eee000d5398f56fe52a4aa3eb77dc39975e8c9c5910a9a94b"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/run_langgraph_pipeline.py", "exists": true, "bytes": 15996, "sha256": "644197b0c5a86d746cebdb8802bbd33d09992f7f707bac5b4f5f9eb84805cb84"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/run_pipeline.py", "exists": true, "bytes": 125659, "sha256": "7b89de4a46ce05da06a244832cd7c09bbf5158cce60298d1b11c349c3281b96b"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/selection_bias.py", "exists": true, "bytes": 8635, "sha256": "c7c3f9416132ea458fb4bb24e0661d68c51a7d285adc15e3321648da4086cc7c"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/stock_backtest.py", "exists": true, "bytes": 7784, "sha256": "186e90a887aea25044b2c012560202fe01f782677a1143bf257cb15e4a983e63"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/test_dashboard_contracts.py", "exists": true, "bytes": 14484, "sha256": "47dbd660a84b5f9a27919583029a643e3395f3ec223a1f93da9de5771d23766a"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/universe.py", "exists": true, "bytes": 7121, "sha256": "50cc929a45d6fd8082cea0761718d3d107affcf9de86356732f5e816b8980148"}, {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/scripts/verify_data.py", "exists": true, "bytes": 2110, "sha256": "86c280459696033a382e6dbcd2bec524e53927b4e93870b46af5c5176a848a52"}], "note": "Hashed so a change to any module invalidates comparability."}, "assumptions": [{"name": "TOP_K", "value": 30, "unit": "names per factor", "controls": "How many names each factor sleeve nominates each month.", "risk_if_wrong": "Tied to the 5% position cap: N names at 5% can place N*5% of capital. Below 20 names the book cannot be fully invested."}, {"name": "TX_COST", "value": 0.001, "unit": "fraction per side", "controls": "Cost on the factor-level dynamic strategy only.", "risk_if_wrong": "The stock-level book uses COST_BPS instead; this one does not affect the authoritative result."}, {"name": "COST_BPS", "value": 20.0, "unit": "basis points", "controls": "Base round-trip cost on traded notional for the stock-level book.", "risk_if_wrong": "A full sensitivity ladder is reported at 0/10/20/50/100 bps, so the conclusion does not rest on this value."}, {"name": "REGIME_MIN_TRAIN_MONTHS", "value": 60, "unit": "months", "controls": "Warm-up before the regime model is allowed to score out of sample.", "risk_if_wrong": "Lowering it lets the mixture be fitted and scored on months it has already seen, which reintroduces look-ahead."}, {"name": "REGIME_MODEL_VERSION", "value": "GMM-5-spherical-walkforward", "unit": "label", "controls": "Identifies the regime model configuration used.", "risk_if_wrong": "A label only; the parameters live in regime_model.py."}, {"name": "WINSOR_TAIL", "value": 0.025, "unit": "fraction of each tail", "controls": "Percentile clip applied to each raw metric before scaling.", "risk_if_wrong": "Too small leaves outliers able to dominate a cross-sectional rank; too large erases genuine signal at the extremes."}, {"name": "MIN_METRIC_COVERAGE", "value": 0.75, "unit": "fraction of weight", "controls": "Share of composite metric weight that must be present for a factor score to be produced at all.", "risk_if_wrong": "Below this threshold a score is withheld rather than computed from whatever metrics survived."}, {"name": "MIN_SECTOR_SIZE", "value": 4, "unit": "stocks", "controls": "Smallest sector that is demeaned; smaller ones keep raw values.", "risk_if_wrong": "Demeaning a group of two against its own mean would drive both to zero and discard real signal."}, {"name": "CONSTRAINTS", "value": {"max_weight": 0.05, "min_weight": 0.0, "max_sector_weight": 0.3, "min_names": 20, "max_names": 60}, "unit": "weight fractions", "controls": "Hard limits the allocator must satisfy in every month.", "risk_if_wrong": "A breach would mean the reported backtest held positions the stated construction could not have built."}, {"name": "RISK_FREE_ANNUAL", "value": 0.065, "unit": "annual decimal", "controls": "Risk-free rate used for the excess-return Sharpe and Jensen's alpha. Not measured: the source data has no G-Sec series.", "risk_if_wrong": "Moves Sharpe from 1.41 (at zero) to 1.07. Both are reported, so no conclusion depends on the exact value."}, {"name": "CI_LEVEL", "value": 0.95, "unit": "probability", "controls": "Width of the bootstrap confidence intervals.", "risk_if_wrong": "A narrower interval would overstate precision."}, {"name": "BOOTSTRAP_SEED", "value": 20260929, "unit": "integer", "controls": "Seed for the moving-block bootstrap.", "risk_if_wrong": "Unpinned, the interval would change on every run and could not be quoted as a result."}, {"name": "BOOTSTRAP_SAMPLES", "value": 2000, "unit": "resamples", "controls": "Draws per confidence interval.", "risk_if_wrong": "Too few resamples makes the interval itself noisy, which is a different kind of uncertainty from the one being measured."}], "news_snapshot": {"path": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/data_input/news_snapshot.json", "fetched_at": "2026-10-04T14:31:08.326160+00:00", "article_count": 182, "content_sha256": "f42fd4bc04aeab43e2d3dbbffe3213f7434e7e60c098f75da584a7d5d2c6cb35"}, "news_mode": "fetched-live", "data_freshness": {"checked_at": "2026-10-04T20:01:18.047775+05:30", "database": "/home/runner/work/Indian-factor-intelligence-dashboard/Indian-factor-intelligence-dashboard/data_input/processed_financial_data.sqlite", "today": "2026-10-04", "expected_eod_date": "2026-10-01", "trading_calendar_note": "Weekends and fixed-date NSE closures are excluded. Diwali and other lunar holidays are not modelled, so a genuine holiday may be counted as a missed trading day. The count errs conservative.", "issues": [{"id": "eod_current", "severity": "ok", "detail": "EOD data is current through 2026-10-02."}, {"id": "month_label_ahead_of_data", "severity": "medium", "detail": "Monthly tables are labelled through 2026-10-31 but the newest close in the database is 2026-10-02, a gap of 29 days. Months are keyed by calendar month-end, so an in-progress month always carries a future date. The label is a bucket, not a claim that trading reached it -- but nothing in the table says so."}], "eod": {"table": "stock_prices_daily", "rows": 1512, "latest_date": "2026-10-02", "distinct_dates": 8, "trading_days_behind": 0, "expected_date": "2026-10-01"}, "monthly": {"stock_prices_monthly": {"month_min": "2014-01-31", "month_max": "2026-10-31", "rows": 26066}, "market_index_monthly": {"month_min": "2014-01-31", "month_max": "2026-10-31", "rows": 308}, "fundamentals_monthly": {"month_min": "2014-01-31", "month_max": "2026-09-30", "rows": 25490}}, "newest_month_label": "2026-10-31", "recent_refresh_runs": {"count": 10, "status_counts": {"ok": 10}, "latest_started_at": "2026-10-04T14:30:57.279447+00:00", "latest_resolved_date": "2026-10-02", "latest_status": "ok", "latest_message": "Inserted/updated real NSE EOD rows from https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_02102026.csv"}, "status": "degraded"}, "determinism": [{"stage": "Regime model (GMM)", "deterministic": true, "basis": "k-means++ init is seeded inside regime_model; components are aligned across refits with linear_sum_assignment, so component order cannot drift between months."}, {"stage": "Factor construction", "deterministic": true, "basis": "Pure cross-sectional arithmetic. No sampling, no fitting."}, {"stage": "Portfolio construction", "deterministic": true, "basis": "Bounded water-filling on a fixed input, no randomness."}, {"stage": "Stock-level backtest", "deterministic": true, "basis": "Compounds a fixed weight path. Cost enters linearly. Weights are summed in sorted order: iterating a set of tickers follows Python's per-process hash randomisation and float addition is not associative, which produced ~1e-6 run-to-run drift in turnover before it was fixed."}, {"stage": "Bootstrap confidence intervals", "deterministic": true, "basis": "random.Random(seed) with a fixed seed, so the interval is identical on every run."}, {"stage": "News ingestion (RSS)", "deterministic": false, "basis": "Fetched live from RSS this run, so the article set depends on the network. A difference here moves the current month's news sentiment, then news_stress_score, then transition_risk, then the regime row, the allocation and the rebalance trades. Measured across two runs it perturbed 1 month of 153 and changed no regime label -- small, but not reproducible. The article set was snapshotted and hashed into the fingerprint, so this run can still be replayed exactly with NEWS_REPLAY=1."}], "caveats": [{"id": "survivorship_bias", "severity": "high", "statement": "Partly corrected, and the remainder is now measured rather than asserted. Every month-end of the NSE bhavcopy archive (2019-09 to 2026-08, 84 snapshots) lists every symbol that traded that day, so the trading universe is known directly. A symbol is now scored only in months it had already started trading, which removes 36 of 189 database symbols from the 56% of backtest months the archive covers -- several were 2024-25 listings previously carried back to 2014. The gate is worth 0.6pp of CAGR and 1.1pp of drawdown. What remains is exclusion rather than look-forward: 412 symbols traded at the start of the archive and had stopped by the end, and the database holds none of them, against a trading universe that grew from 1699 to 3232 names. Those are invisible to today's Nifty 200 list, so the return remains biased upward by an unknown amount.", "why_not_fixed": "Correcting the remaining 412 names needs fundamentals for tickers never ingested, which is paid data acquisition rather than calculation. The archive also only reaches 2019-09, so the 68 earlier backtest months are ungated."}, {"id": "fundamental_factors_skip_the_whole_banking_sector", "severity": "medium", "statement": "16 of 189 symbols (8%) are structurally invisible to the Value and Quality factors. They are all in Financial Services: a bank has no revenue line to grow and deposits are not debt in the sense debt/equity assumes. 10,970 factor score-months are withheld, and this is the largest single cause -- not missing data, but a sector whose reporting conventions do not map onto the metrics. Momentum and Low Volatility are price-based and still cover these names.", "why_not_fixed": "Fixing it needs bank-specific metrics (NIM, GNPA, NPA ratio, PCR, CASA) sourced from filings, and equity metrics that are comparable across the two sector types. Adding them is a data acquisition project, not a calculation change."}, {"id": "fundamental_ingestion_gaps", "severity": "medium", "statement": "2 symbols (SWIGGY, VMM) have fundamental rows but no populated metric in any month. Unlike the banks, this is an ingestion gap rather than an economic fact, and it is probably a recent listing with no extracted history.", "why_not_fixed": "Upstream extraction. The coverage rule correctly withholds their scores rather than guessing from partial data."}, {"id": "sparse_fundamental_coverage", "severity": "low", "statement": "5 symbols carry metrics in fewer than half their months, so the coverage rule withholds their score in most months and they contribute unevenly to the factors: HYUNDAI (9% of 23 months), M&MFIN (49% of 150 months), PREMIERENE (13% of 23 months), SHRIRAMFIN (48% of 150 months), WAAREEENER (9% of 23 months). The rule is doing the conservative thing here, since a score computed from the months that happen to be populated would be noisier than no score at all.", "why_not_fixed": "The missing months are absent upstream, not dropped downstream -- the rows exist in fundamentals_monthly and the metric columns are empty. Fixing it means re-extracting the filing history for these tickers. The pipeline already handles the consequence correctly by withholding rather than imputing, so this affects breadth of coverage rather than correctness of what is reported."}, {"id": "risk_free_rate_is_measured_but_backwards_looking", "severity": "low", "statement": "Sharpe is computed against the measured Indian 10-year G-Sec yield from macro_monthly, averaging 7.19% over the window and spanning 5.98% to 8.73%. It is applied month by month, not as a single average. One caveat remains: the series is a yield, so it is a contemporaneous rate rather than a return actually earned in that month, which slightly overstates the excess return in a risk-off period when yields fall alongside prices.", "why_not_fixed": "A realised total-return index on 10-year G-Secs would be the correct benchmark, and no such series is in the database."}, {"id": "precision_of_the_headline", "severity": "high", "statement": "The 26.58% CAGR point estimate has a 95% interval of 12.83% to 40.34%. The interval is roughly 28 points wide: 149 monthly returns cannot pin down a growth rate more precisely than that. The window analysis says how much of that is spread: of 114 overlapping 36-month stretches, 114 compounded positively (100.0%), with a median of 25.0% and a range of 0.1% to 55.8%. The worst was 2017-04 to 2020-03, the best 2022-07 to 2025-06. A reader starting at an arbitrary date would have experienced the median, not the headline.", "why_not_fixed": "A longer out-of-sample history would narrow it, and no amount of statistics manufactures months that did not happen. The rolling windows narrow the practical uncertainty without pretending the sample grew."}, {"id": "sharpe_does_not_clear_the_selection_bar", "severity": "high", "statement": "The reported Sharpe of 1.007 is the best of 16 effectively independent configurations, not one chosen in advance. Against the 0.7499 that the best of that many random strategies would be expected to reach, a strategy this strong appears by chance roughly 27% of the time. The deflated figure is 0.2571. A simulation-calibrated bar, which is less strict, would give 0.4821.", "why_not_fixed": "This is not a defect in the calculation; it is what the sample supports. Closing the gap needs either more out-of-sample history, a strategy fixed in advance rather than selected, or a fresh sample the search never touched."}, {"id": "diversification_is_illusory", "severity": "medium", "statement": "Beta of 0.985 looks market-neutral, but R-squared of 79% means 79% of monthly variance is still the index's. The alpha is real; the diversification benefit is not.", "why_not_fixed": "Tested, and the obvious remedy does not work. Re-running the allocator with the sector cap tightened from 30% to 8% left R-squared at 76-79% the whole way while beta fell 1.04 to 0.75 and CAGR fell 29.6% to 20.7%. Sector concentration is not the cause; the correlation is what a long-only equity book is. Lowering it needs shorting or hedging the index, which is a different strategy rather than a fix to this one."}, {"id": "tail_risk", "severity": "medium", "statement": "Average of the worst 5% of months is -10.2%, the worst single month was -20.9%, and the book spent 24 consecutive months below a prior peak. A mean and a Sharpe ratio both hide this.", "why_not_fixed": "Inherent to a long-only equity book. Disclosed rather than smoothed away."}, {"id": "regime_warmup", "severity": "medium", "statement": "60 of 154 months carry no regime score, because the mixture refuses to fit and score a month before its warm-up ends. Those months are labelled 'Unscored' and the allocator holds an explicitly neutral 0.5 confidence rather than a fabricated one. The regime input is therefore absent for the first 60 months of the backtest, which is roughly 39% of the period.", "why_not_fixed": "A shorter warm-up would let the mixture be fitted and scored on months it has already seen, which is precisely the look-ahead the warm-up exists to prevent.", "provenance_check": "No warm-up month is labelled with the GMM model version, so the output does not claim a provenance it does not have."}, {"id": "news_coverage_is_sparse", "severity": "medium", "statement": "News features are populated for 62 of 154 months (40% coverage, 57 inside the backtest window, 391.0 articles in total), at a mean confidence of about 0.10. A feature absent in more than half the months is not measuring sentiment; it is partly measuring article availability.", "why_not_fixed": "The archive only goes back so far. This is why the news factor is weighted by its own confidence rather than treated as a full-strength input, and why it is retained as decision context rather than removed outright."}, {"id": "no_machine_learning_layer", "severity": "low", "statement": "No supervised learning layer is fitted. A learner needs substantially more forward return periods than exist here before it can be validated out of sample, and fitting one on this data would be overfitting dressed as sophistication.", "why_not_fixed": "Requires more out-of-sample history, not a different algorithm."}, {"id": "month_label_ahead_of_data", "severity": "medium", "statement": "Monthly tables are labelled through 2026-10-31 but the newest close in the database is 2026-10-02, a gap of 29 days. Months are keyed by calendar month-end, so an in-progress month always carries a future date. The label is a bucket, not a claim that trading reached it -- but nothing in the table says so.", "why_not_fixed": "The scheduled refresh has not delivered data for these trading days. Run `python scripts/verify_data.py` to see the current position, and check the scheduled job has a `schedule:` trigger -- without one it never runs on its own."}], "caveat_summary": {"high": 3, "medium": 7, "low": 3}}
+{
+  "schema": "experiment_manifest/1",
+  "run": {
+    "started_at": "2026-10-02T17:32:18.276940+00:00",
+    "finished_at": "2026-10-02T17:37:26.136399+00:00",
+    "runtime_seconds": 307.61,
+    "fingerprint": "418210323221833091965a2bd88d95b13d486968dc6b57730ff5033a2e2066df",
+    "fingerprint_covers": [
+      "source database path and per-table row counts",
+      "SHA-256 of every pipeline module",
+      "every assumption listed below"
+    ],
+    "fingerprint_note": "Two runs with the same fingerprint produced the same outputs. A different fingerprint means an input, a module or an assumption moved, and the results are not comparable without saying so."
+  },
+  "environment": {
+    "python": "3.13.14",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "machine": "AMD64"
+  },
+  "inputs": {
+    "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\data_input\\processed_financial_data.sqlite",
+    "exists": true,
+    "bytes": 15527936,
+    "tables": {
+      "fundamentals_monthly": {
+        "present": true,
+        "rows": 25490,
+        "month_min": "2014-01-31",
+        "month_max": "2026-09-30",
+        "months": 153
+      },
+      "factor_scores_monthly": {
+        "present": true,
+        "rows": 25877,
+        "month_min": "2014-01-31",
+        "month_max": "2026-09-30",
+        "months": 153
+      },
+      "stock_prices_monthly": {
+        "present": true,
+        "rows": 25877,
+        "month_min": "2014-01-31",
+        "month_max": "2026-09-30",
+        "months": 153
+      },
+      "stock_prices_daily": {
+        "present": true,
+        "rows": 1134
+      },
+      "market_index_monthly": {
+        "present": true,
+        "rows": 306,
+        "month_min": "2014-01-31",
+        "month_max": "2026-09-30",
+        "months": 153
+      },
+      "market_index_daily": {
+        "present": true,
+        "rows": 12
+      },
+      "sector_index_monthly": {
+        "present": true,
+        "rows": 1937,
+        "month_min": "2015-11-30",
+        "month_max": "2026-09-30",
+        "months": 131
+      },
+      "macro_monthly": {
+        "present": true,
+        "rows": 414,
+        "month_min": "1992-03-31",
+        "month_max": "2026-08-31",
+        "months": 414
+      },
+      "regime_features_monthly": {
+        "present": true,
+        "rows": 153,
+        "month_min": "2014-01-31",
+        "month_max": "2026-09-30",
+        "months": 153
+      },
+      "news_articles_raw": {
+        "present": true,
+        "rows": 510
+      },
+      "news_features_monthly": {
+        "present": true,
+        "rows": 61,
+        "month_min": "1998-03-31",
+        "month_max": "2026-09-30",
+        "months": 61
+      },
+      "data_inventory": {
+        "present": true,
+        "rows": 51
+      }
+    }
+  },
+  "code": {
+    "dir": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts",
+    "modules": [
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\ablation.py",
+        "exists": true,
+        "bytes": 10436,
+        "sha256": "ee6ade4d1512c5f25a80d415d7a083d655ba9cf91ce78800d7ae69d03b92fe8d"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\backtest_reporting.py",
+        "exists": true,
+        "bytes": 5720,
+        "sha256": "ea86c62a52ceaba06f0c32eef2a54e6f76d7ec618e0adf18dca53ee4ccd8eba4"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\coverage_audit.py",
+        "exists": true,
+        "bytes": 5770,
+        "sha256": "8bc895ea8e6278aa6d8ab79299edf74600c73d115c417e06e45b368c05a57574"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\daily_eod_refresh.py",
+        "exists": true,
+        "bytes": 35817,
+        "sha256": "5f6b7437edf86a0eb5ffe6429ce798baf0ea7c5fca525c15332d37fe00dcc6b2"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\data_freshness.py",
+        "exists": true,
+        "bytes": 15716,
+        "sha256": "853d429646118cfa08aec7eceea78e8c369f43c576c629b909900ca8c15c4cd4"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\data_quality.py",
+        "exists": true,
+        "bytes": 17825,
+        "sha256": "bb0b50731c1b4dade66d887a57c659f0cf929524cbe20e1c95ba957eabd110af"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\experiment_manifest.py",
+        "exists": true,
+        "bytes": 44642,
+        "sha256": "13b76938b2b941d08dddfc5e3acab36fd97691173f23ee2c2ee5779cf6710048"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\factor_engine.py",
+        "exists": true,
+        "bytes": 11257,
+        "sha256": "06bb8d042de9ee239ed32f50c1c48a0151c432cd36a5fe87974409f6505c9501"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\forward_outlook.py",
+        "exists": true,
+        "bytes": 12615,
+        "sha256": "b0e4af69a7325beeeb895b32be24edf6b3c837eae9d41bf5a66c4c4fc3460f6f"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\historical_price_data.py",
+        "exists": true,
+        "bytes": 30949,
+        "sha256": "85fadfa4158038ed1b1c5ed1a7331e3612f87bb08cc886b8d333216f35620558"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\historical_universe.py",
+        "exists": true,
+        "bytes": 2875,
+        "sha256": "0a598533bc99d82143126d24a2db624951e1c646ab3c222330779d56d8be2a82"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\news_history.py",
+        "exists": true,
+        "bytes": 4003,
+        "sha256": "4358b4cc478b156f943018e68c5699f445fe1b88a896dad6bfd9e189eecb64f4"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\news_relevance.py",
+        "exists": true,
+        "bytes": 7025,
+        "sha256": "c863177e82fcdf87e2b87bbe0951d14ac9eaa1111735876e46fca7d073030c41"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\nse_universe.py",
+        "exists": true,
+        "bytes": 6444,
+        "sha256": "1d91a9a03193cb79423d4d1b30f2c3146f896992784fa8bfce8e847fbcb4fd24"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\performance_stats.py",
+        "exists": true,
+        "bytes": 31490,
+        "sha256": "2f8e3b39162a8f5c5fd0d75c58f062c3928d5527a2fd6663f834a278d9fe75ea"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\point_in_time.py",
+        "exists": true,
+        "bytes": 6868,
+        "sha256": "11431dcf0beb137db0b950971c1b2b18d004812ba67b3854cc26bf2ea8285a11"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\portfolio_construction.py",
+        "exists": true,
+        "bytes": 15372,
+        "sha256": "ab2cd5b93bb92d108c05fb0c9caac9d6ebc1140f6d170dcb6983542c575f9df6"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\price_sanity.py",
+        "exists": true,
+        "bytes": 4343,
+        "sha256": "9e737d4310dcf3802cd51ec96349503bd829e2f4e0a83e6280183620d508c887"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\regime_labels.py",
+        "exists": true,
+        "bytes": 1305,
+        "sha256": "e0ef78b61727190cded8c56dc993ae36b8b3723072d79b4ccc5c23de5eca8a98"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\regime_model.py",
+        "exists": true,
+        "bytes": 14597,
+        "sha256": "e426b5d3a9b4bcac26f68a7f8b07e11fc43fe2279da7545f1ada6fef5e709f3c"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\repair_eod_aggregates.py",
+        "exists": true,
+        "bytes": 2684,
+        "sha256": "d59fa8af78689f24f05b59a2dc40b6a9c3ad782a8c32fae98e19b3ed417f39ec"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\repair_fii_dii.py",
+        "exists": true,
+        "bytes": 6873,
+        "sha256": "d0e1ee9eb6ac86ce73f282f57b8c8e4d04ad415ed90d386f3a2d92014736a5cc"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\risk_free.py",
+        "exists": true,
+        "bytes": 7862,
+        "sha256": "0acfe49659e2c82eee000d5398f56fe52a4aa3eb77dc39975e8c9c5910a9a94b"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\run_langgraph_pipeline.py",
+        "exists": true,
+        "bytes": 16473,
+        "sha256": "d6213d5ff2ecce26abf6070122babba41459d19e13dccdb8d1185a9f560333ef"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\run_pipeline.py",
+        "exists": true,
+        "bytes": 157547,
+        "sha256": "61c52c8c435f31cc09ae644bc50f38f1b40abaf40f9087c7649fdda2ffb8ac85"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\selection_bias.py",
+        "exists": true,
+        "bytes": 8635,
+        "sha256": "c7c3f9416132ea458fb4bb24e0661d68c51a7d285adc15e3321648da4086cc7c"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\stock_backtest.py",
+        "exists": true,
+        "bytes": 10517,
+        "sha256": "2ab37982d5b966afb843a92ea2f6dcff15a80410897b18212c36c0693ff6a20e"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\temporal_protocol.py",
+        "exists": true,
+        "bytes": 5174,
+        "sha256": "a6ab86600bf58b592f871fbc731995f42fe737221a1ddfb9a8e83f097846a988"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\test_backtest_reporting.py",
+        "exists": true,
+        "bytes": 5614,
+        "sha256": "6bbd071d920f00372bbfa134a59cef43c3629274190acca00900cc73efca43ab"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\test_dashboard_contracts.py",
+        "exists": true,
+        "bytes": 16506,
+        "sha256": "1060fad648bdbb6d53a5c9c29f643ecd2bbd44475f167ea809681d7c7547fe05"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\test_historical_price_data.py",
+        "exists": true,
+        "bytes": 9446,
+        "sha256": "311a6e5c52874458073da5539e6b0fb481fe759c6405cd66b93324cebf6f97f5"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\test_leakage.py",
+        "exists": true,
+        "bytes": 17377,
+        "sha256": "e950f1cd8e00eca8731f3181856691f836ac49d29492bb3a0f6e5a697617ee6c"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\test_temporal_validity.py",
+        "exists": true,
+        "bytes": 7746,
+        "sha256": "d15ebd84a926615b0ef0e0164efee7a90a721a03bfc4e3d6000aa09423ccbce5"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\universe.py",
+        "exists": true,
+        "bytes": 7121,
+        "sha256": "50cc929a45d6fd8082cea0761718d3d107affcf9de86356732f5e816b8980148"
+      },
+      {
+        "path": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\scripts\\verify_data.py",
+        "exists": true,
+        "bytes": 2110,
+        "sha256": "86c280459696033a382e6dbcd2bec524e53927b4e93870b46af5c5176a848a52"
+      }
+    ],
+    "note": "Hashed so a change to any module invalidates comparability."
+  },
+  "assumptions": [
+    {
+      "name": "TOP_K",
+      "value": 30,
+      "unit": "names per factor",
+      "controls": "How many names each factor sleeve nominates each month.",
+      "risk_if_wrong": "Tied to the 5% position cap: N names at 5% can place N*5% of capital. Below 20 names the book cannot be fully invested."
+    },
+    {
+      "name": "TX_COST",
+      "value": 0.001,
+      "unit": "fraction per side",
+      "controls": "Cost on the factor-level dynamic strategy only.",
+      "risk_if_wrong": "The stock-level book uses COST_BPS instead; this one does not affect the authoritative result."
+    },
+    {
+      "name": "COST_BPS",
+      "value": 20.0,
+      "unit": "basis points",
+      "controls": "Base round-trip cost on traded notional for the stock-level book.",
+      "risk_if_wrong": "A full sensitivity ladder is reported at 0/10/20/50/100 bps, so the conclusion does not rest on this value."
+    },
+    {
+      "name": "REGIME_MIN_TRAIN_MONTHS",
+      "value": 60,
+      "unit": "months",
+      "controls": "Warm-up before the regime model is allowed to score out of sample.",
+      "risk_if_wrong": "Lowering it lets the mixture be fitted and scored on months it has already seen, which reintroduces look-ahead."
+    },
+    {
+      "name": "REGIME_MODEL_VERSION",
+      "value": "GMM-5-spherical-walkforward",
+      "unit": "label",
+      "controls": "Identifies the regime model configuration used.",
+      "risk_if_wrong": "A label only; the parameters live in regime_model.py."
+    },
+    {
+      "name": "WINSOR_TAIL",
+      "value": 0.025,
+      "unit": "fraction of each tail",
+      "controls": "Percentile clip applied to each raw metric before scaling.",
+      "risk_if_wrong": "Too small leaves outliers able to dominate a cross-sectional rank; too large erases genuine signal at the extremes."
+    },
+    {
+      "name": "MIN_METRIC_COVERAGE",
+      "value": 0.75,
+      "unit": "fraction of weight",
+      "controls": "Share of composite metric weight that must be present for a factor score to be produced at all.",
+      "risk_if_wrong": "Below this threshold a score is withheld rather than computed from whatever metrics survived."
+    },
+    {
+      "name": "MIN_SECTOR_SIZE",
+      "value": 4,
+      "unit": "stocks",
+      "controls": "Smallest sector that is demeaned; smaller ones keep raw values.",
+      "risk_if_wrong": "Demeaning a group of two against its own mean would drive both to zero and discard real signal."
+    },
+    {
+      "name": "CONSTRAINTS",
+      "value": {
+        "max_weight": 0.05,
+        "min_weight": 0.0,
+        "max_sector_weight": 0.3,
+        "min_names": 20,
+        "max_names": 60
+      },
+      "unit": "weight fractions",
+      "controls": "Hard limits the allocator must satisfy in every month.",
+      "risk_if_wrong": "A breach would mean the reported backtest held positions the stated construction could not have built."
+    },
+    {
+      "name": "RISK_FREE_ANNUAL",
+      "value": 0.065,
+      "unit": "annual decimal",
+      "controls": "Risk-free rate used for the excess-return Sharpe and Jensen's alpha. Not measured: the source data has no G-Sec series.",
+      "risk_if_wrong": "Moves Sharpe from 1.41 (at zero) to 1.07. Both are reported, so no conclusion depends on the exact value."
+    },
+    {
+      "name": "CI_LEVEL",
+      "value": 0.95,
+      "unit": "probability",
+      "controls": "Width of the bootstrap confidence intervals.",
+      "risk_if_wrong": "A narrower interval would overstate precision."
+    },
+    {
+      "name": "BOOTSTRAP_SEED",
+      "value": 20260929,
+      "unit": "integer",
+      "controls": "Seed for the moving-block bootstrap.",
+      "risk_if_wrong": "Unpinned, the interval would change on every run and could not be quoted as a result."
+    },
+    {
+      "name": "BOOTSTRAP_SAMPLES",
+      "value": 2000,
+      "unit": "resamples",
+      "controls": "Draws per confidence interval.",
+      "risk_if_wrong": "Too few resamples makes the interval itself noisy, which is a different kind of uncertainty from the one being measured."
+    }
+  ],
+  "news_snapshot": null,
+  "news_mode": "not_used",
+  "data_freshness": {
+    "checked_at": "2026-10-02T23:07:26.105002+05:30",
+    "database": "C:\\Users\\sath0\\Downloads\\Indian-factor-intelligence-dashboard-main\\data_input\\processed_financial_data.sqlite",
+    "today": "2026-10-02",
+    "expected_eod_date": "2026-10-01",
+    "trading_calendar_note": "Weekends and fixed-date NSE closures are excluded. Diwali and other lunar holidays are not modelled, so a genuine holiday may be counted as a missed trading day. The count errs conservative.",
+    "issues": [
+      {
+        "id": "eod_one_day_behind",
+        "severity": "low",
+        "detail": "EOD data stops at 2026-09-30, one trading day behind 2026-10-01. Usually the refresh has not run yet today."
+      },
+      {
+        "id": "refresh_stalled_after_last_success",
+        "severity": "medium",
+        "detail": "The last refresh that delivered data resolved 2026-09-30, and 1 trading day(s) since then went unrefreshed."
+      }
+    ],
+    "eod": {
+      "table": "stock_prices_daily",
+      "rows": 1134,
+      "latest_date": "2026-09-30",
+      "distinct_dates": 6,
+      "trading_days_behind": 1,
+      "expected_date": "2026-10-01"
+    },
+    "monthly": {
+      "stock_prices_monthly": {
+        "month_min": "2014-01-31",
+        "month_max": "2026-09-30",
+        "rows": 25877
+      },
+      "market_index_monthly": {
+        "month_min": "2014-01-31",
+        "month_max": "2026-09-30",
+        "rows": 306
+      },
+      "fundamentals_monthly": {
+        "month_min": "2014-01-31",
+        "month_max": "2026-09-30",
+        "rows": 25490
+      }
+    },
+    "newest_month_label": "2026-09-30",
+    "recent_refresh_runs": {
+      "count": 10,
+      "status_counts": {
+        "ok": 10
+      },
+      "latest_started_at": "2026-09-30T13:28:27.078642+00:00",
+      "latest_resolved_date": "2026-09-30",
+      "latest_status": "ok",
+      "latest_message": "Inserted/updated real NSE EOD rows from https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_30092026.csv"
+    },
+    "status": "degraded"
+  },
+  "determinism": [
+    {
+      "stage": "Regime model (GMM)",
+      "deterministic": true,
+      "basis": "k-means++ init is seeded inside regime_model; components are aligned across refits with linear_sum_assignment, so component order cannot drift between months."
+    },
+    {
+      "stage": "Factor construction",
+      "deterministic": true,
+      "basis": "Pure cross-sectional arithmetic. No sampling, no fitting."
+    },
+    {
+      "stage": "Portfolio construction",
+      "deterministic": true,
+      "basis": "Bounded water-filling on a fixed input, no randomness."
+    },
+    {
+      "stage": "Stock-level backtest",
+      "deterministic": true,
+      "basis": "Compounds a fixed weight path. Cost enters linearly. Weights are summed in sorted order: iterating a set of tickers follows Python's per-process hash randomisation and float addition is not associative, which produced ~1e-6 run-to-run drift in turnover before it was fixed."
+    },
+    {
+      "stage": "Bootstrap confidence intervals",
+      "deterministic": true,
+      "basis": "random.Random(seed) with a fixed seed, so the interval is identical on every run."
+    },
+    {
+      "stage": "News ingestion (RSS)",
+      "deterministic": true,
+      "basis": "Not used by this model run. Historical publication-time and vintage availability are unverified, so no live or historical news features entered regime or allocation inputs."
+    }
+  ],
+  "caveats": [
+    {
+      "id": "partial_historical_membership_coverage",
+      "severity": "high",
+      "statement": "Historical Nifty 200 constituent reconstruction is in use, but coverage is partial: snapshots cover 137 historical months and 5 months have no membership snapshot. Of 38 source snapshots, 37 contain unresolved ticker labels (62 distinct labels across those snapshots). The latest resolved set (2026-10; snapshot 2026-09-30) matches 200 members with 0 unresolved. Missing historical membership is not filled from today's constituents.",
+      "why_not_fixed": "The available snapshots are used only when exact membership can be established. The uncovered months and unresolved ticker labels require additional source records or verified identifier mappings; no members are guessed or backfilled."
+    },
+    {
+      "id": "fundamental_factors_skip_the_whole_banking_sector",
+      "severity": "medium",
+      "statement": "16 of 189 symbols (8%) are structurally invisible to the Value and Quality factors. They are all in Financial Services: a bank has no revenue line to grow and deposits are not debt in the sense debt/equity assumes. 25,233 factor score-months are withheld, and this is the largest single cause -- not missing data, but a sector whose reporting conventions do not map onto the metrics. Momentum and Low Volatility are price-based and still cover these names.",
+      "why_not_fixed": "Fixing it needs bank-specific metrics (NIM, GNPA, NPA ratio, PCR, CASA) sourced from filings, and equity metrics that are comparable across the two sector types. Adding them is a data acquisition project, not a calculation change."
+    },
+    {
+      "id": "fundamental_ingestion_gaps",
+      "severity": "medium",
+      "statement": "2 symbols (SWIGGY, VMM) have fundamental rows but no populated metric in any month. Unlike the banks, this is an ingestion gap rather than an economic fact, and it is probably a recent listing with no extracted history.",
+      "why_not_fixed": "Upstream extraction. The coverage rule correctly withholds their scores rather than guessing from partial data."
+    },
+    {
+      "id": "sparse_fundamental_coverage",
+      "severity": "low",
+      "statement": "3 symbols carry metrics in fewer than half their months, so the coverage rule withholds their score in most months and they contribute unevenly to the factors: HYUNDAI (9% of 23 months), PREMIERENE (13% of 23 months), WAAREEENER (9% of 23 months). The rule is doing the conservative thing here, since a score computed from the months that happen to be populated would be noisier than no score at all.",
+      "why_not_fixed": "The missing months are absent upstream, not dropped downstream -- the rows exist in fundamentals_monthly and the metric columns are empty. Fixing it means re-extracting the filing history for these tickers. The pipeline already handles the consequence correctly by withholding rather than imputing, so this affects breadth of coverage rather than correctness of what is reported."
+    },
+    {
+      "id": "incomplete_return_path",
+      "severity": "high",
+      "statement": "The authoritative stock-level return path has 22 omitted periods. Full-period cumulative, rolling, confidence-interval and benchmark comparison metrics are unavailable; only explicitly scoped evaluated-period statistics are retained.",
+      "why_not_fixed": "Missing periods cannot be filled without verified prices and corporate-action treatment."
+    },
+    {
+      "id": "risk_free_rate_is_measured_but_backwards_looking",
+      "severity": "low",
+      "statement": "Sharpe is computed against the measured Indian 10-year G-Sec yield from macro_monthly, averaging 7.12% over the window and spanning 5.98% to 8.18%. It is applied month by month, not as a single average. One caveat remains: the series is a yield, so it is a contemporaneous rate rather than a return actually earned in that month, which slightly overstates the excess return in a risk-off period when yields fall alongside prices.",
+      "why_not_fixed": "A realised total-return index on 10-year G-Secs would be the correct benchmark, and no such series is in the database."
+    },
+    {
+      "id": "sharpe_does_not_clear_the_selection_bar",
+      "severity": "high",
+      "statement": "The reported Sharpe of 0.6745 is the best of 16 effectively independent configurations, not one chosen in advance. Against the 0.8094 that the best of that many random strategies would be expected to reach, a strategy this strong appears by chance roughly 62% of the time. The deflated figure is -0.1348. A simulation-calibrated bar, which is less strict, would give 0.108.",
+      "why_not_fixed": "This is not a defect in the calculation; it is what the sample supports. Closing the gap needs either more out-of-sample history, a strategy fixed in advance rather than selected, or a fresh sample the search never touched."
+    },
+    {
+      "id": "tail_risk",
+      "severity": "medium",
+      "statement": "Average of the worst 5% of months is -8.3%, the worst single month was -9.4%; continuous drawdown duration is unavailable. A mean and a Sharpe ratio both hide this.",
+      "why_not_fixed": "Inherent to a long-only equity book. Disclosed rather than smoothed away."
+    },
+    {
+      "id": "price_return_excludes_cash_dividends",
+      "severity": "medium",
+      "statement": "The stock-level backtest uses split/bonus-adjusted price return; cash dividends excluded; unsupported rights/merger/demerger intervals withheld. It is a price-return series, not a complete total-return series.",
+      "why_not_fixed": "Cash-dividend and unsupported corporate-action return treatment cannot be filled without verified source records."
+    },
+    {
+      "id": "regime_warmup",
+      "severity": "medium",
+      "statement": "60 of 153 months carry no regime score, because the mixture refuses to fit and score a month before its warm-up ends. Those months are labelled 'Unscored' and the allocator holds an explicitly neutral 0.5 confidence rather than a fabricated one. The regime input is therefore absent for the first 60 months of the backtest, which is roughly 39% of the period.",
+      "why_not_fixed": "A shorter warm-up would let the mixture be fitted and scored on months it has already seen, which is precisely the look-ahead the warm-up exists to prevent.",
+      "provenance_check": "No warm-up month is labelled with the GMM model version, so the output does not claim a provenance it does not have."
+    },
+    {
+      "id": "news_coverage_is_sparse",
+      "severity": "medium",
+      "statement": "News features are populated for 61 of 153 months (40% coverage, 56 inside the backtest window, 480.0 articles in total), at a mean confidence of about 0.08. A feature absent in more than half the months is not measuring sentiment; it is partly measuring article availability.",
+      "why_not_fixed": "The archive only goes back so far. This is why the news factor is weighted by its own confidence rather than treated as a full-strength input, and why it is retained as decision context rather than removed outright."
+    },
+    {
+      "id": "no_machine_learning_layer",
+      "severity": "low",
+      "statement": "No supervised learning layer is fitted. A learner needs substantially more forward return periods than exist here before it can be validated out of sample, and fitting one on this data would be overfitting dressed as sophistication.",
+      "why_not_fixed": "Requires more out-of-sample history, not a different algorithm."
+    },
+    {
+      "id": "eod_one_day_behind",
+      "severity": "low",
+      "statement": "EOD data stops at 2026-09-30, one trading day behind 2026-10-01. Usually the refresh has not run yet today.",
+      "why_not_fixed": "The scheduled refresh has not delivered data for these trading days. Run `python scripts/verify_data.py` to see the current position, and check the scheduled job has a `schedule:` trigger -- without one it never runs on its own."
+    },
+    {
+      "id": "refresh_stalled_after_last_success",
+      "severity": "medium",
+      "statement": "The last refresh that delivered data resolved 2026-09-30, and 1 trading day(s) since then went unrefreshed.",
+      "why_not_fixed": "The scheduled refresh has not delivered data for these trading days. Run `python scripts/verify_data.py` to see the current position, and check the scheduled job has a `schedule:` trigger -- without one it never runs on its own."
+    }
+  ],
+  "caveat_summary": {
+    "high": 3,
+    "medium": 7,
+    "low": 4
+  },
+  "decision_protocol": {
+    "signal_date": "Last completed trading day of the signal month",
+    "information_cutoff": "All inputs must be available by this timestamp",
+    "execution_date": "Next eligible trading session (T+1)",
+    "description": "Every model output carries signal_date, information_cutoff, and execution_date to make the point-in-time protocol explicit."
+  }
+}

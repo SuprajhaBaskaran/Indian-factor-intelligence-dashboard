@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { UserProfile } from "@/lib/auth";
 import { getUserJourney, readUserExperience } from "@/lib/userExperience";
-import { AlertTriangle, ArrowRight, BadgeIndianRupee, BriefcaseBusiness, CheckCircle2, TrendingUp, TrendingDown, Minus, ShieldAlert, WalletCards } from "lucide-react";
+import { AlertTriangle, TrendingUp, TrendingDown, Minus, ShieldAlert, WalletCards } from "lucide-react";
 import { Badge, ProgressBar, StatCard } from "@/components/UI";
 import { TermTooltip } from "@/components/TermTooltip";
 import { formatPercent, getOverviewData, getMarketIndex, getMacroData } from "@/lib/data";
@@ -52,7 +52,6 @@ export function CommandCenterPage({
   const isRetainDecision = (decision?.decision || "RETAIN") === "RETAIN";
   const experience = readUserExperience(user.id);
   const journey = getUserJourney(experience);
-  const isNewInvestor = journey === "new-investor";
   const firstName = user.name?.trim().split(/\s+/)[0];
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -61,36 +60,6 @@ export function CommandCenterPage({
     : journey === "existing-investor-fresh-money"
     ? "Review your saved holdings alongside the additional amount you may want to invest."
     : "See how your saved holdings compare with the model’s latest monthly targets.";
-  const journeyCopy = journey === "new-investor"
-    ? {
-        label: "Starting fresh",
-        title: "Build your first model-guided plan",
-        description: "Begin with an investment amount. We will translate the latest monthly model into simple buy ideas, cash left over, and plain-language reasons.",
-        primary: "Create First Plan",
-        secondary: "Check Trust Score",
-        icon: BadgeIndianRupee,
-        steps: ["Enter your capital", "Review suggested buys", "Save a draft plan"],
-      }
-    : journey === "existing-investor-fresh-money"
-    ? {
-        label: "Portfolio + fresh money",
-        title: "Review your holdings and new cash together",
-        description: "Import your current portfolio, add your new investment amount, and see what the model would sell, reduce, hold, add, or buy.",
-        primary: "Import Holdings",
-        secondary: "Review Portfolio",
-        icon: BriefcaseBusiness,
-        steps: ["Import holdings", "Compare with targets", "Review trade changes"],
-      }
-    : {
-        label: "Existing investor",
-        title: "Compare your holdings with the model",
-        description: "Add or import your current stocks. The assistant will turn the monthly model into specific sell, reduce, hold, add, and buy suggestions.",
-        primary: "Add Holdings",
-        secondary: "Review Portfolio",
-        icon: BriefcaseBusiness,
-        steps: ["Add holdings", "Understand mismatches", "Review rebalance list"],
-      };
-  const JourneyIcon = journeyCopy.icon;
 
   const regime = overview?.regime_label;
   const marketStance = getMarketStanceLabel(regime);
@@ -115,58 +84,9 @@ export function CommandCenterPage({
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid gap-0 lg:grid-cols-[1.25fr_0.75fr]">
-          <div className="p-5 sm:p-6">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge color={journey === "new-investor" ? "green" : "blue"}>{journeyCopy.label}</Badge>
-              <Badge color={risk.status === "Normal" ? "green" : risk.status === "Caution" ? "amber" : "red"}>Daily Risk: {risk.status}</Badge>
-            </div>
-            <div className="mt-5 flex gap-4">
-              <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700 sm:flex">
-                <JourneyIcon className="h-6 w-6" />
-              </span>
-              <div>
-                <h3 className="text-2xl font-bold text-slate-950">{journeyCopy.title}</h3>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{journeyCopy.description}</p>
-              </div>
-            </div>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <button
-                onClick={() => onNavigate("my-plan")}
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
-              >
-                {journeyCopy.primary} <ArrowRight className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => onNavigate(journey === "new-investor" ? "trust" : "my-plan")}
-                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                {journeyCopy.secondary}
-              </button>
-            </div>
-          </div>
-          <div className="border-t border-slate-200 bg-slate-50 p-5 lg:border-l lg:border-t-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Your next 3 steps</p>
-            <div className="mt-4 space-y-3">
-              {journeyCopy.steps.map((step, index) => (
-                <div key={step} className="flex items-center gap-3 rounded-lg bg-white p-3 text-sm shadow-sm">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700">{index + 1}</span>
-                  <span className="font-medium text-slate-800">{step}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 flex items-start gap-2 rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-xs leading-5 text-emerald-800">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-              No order is placed from this dashboard. Every plan stays review-only.
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ── LATEST MODEL DECISION ─────────────────────────────────────────── */}
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-800 mb-4">{isNewInvestor ? "Today’s Guardrail" : "Latest Model Decision"}</h3>
+        <h3 className="text-sm font-semibold text-slate-800 mb-4">Latest Model Decision</h3>
         {!overview && <div role="status" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Current market and model summary is unavailable in the loaded data. No recommendation is being shown.</div>}
         <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
           <div>
@@ -179,28 +99,22 @@ export function CommandCenterPage({
               </Badge>
             </div>}
             {overview && <div className={`mt-4 rounded-lg p-5 ${action.color === "green" ? "bg-emerald-50" : action.color === "amber" ? "bg-amber-50" : action.color === "red" ? "bg-red-50" : "bg-slate-50"}`}>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{isNewInvestor ? "Before you invest" : "Monthly model view"}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Monthly model view</p>
               <p className={`mt-1 text-2xl font-bold ${action.color === "green" ? "text-emerald-900" : action.color === "amber" ? "text-amber-900" : action.color === "red" ? "text-red-900" : "text-slate-900"}`}>
-                {isNewInvestor ? risk.executionMode : action.label}
+                {action.label}
               </p>
-              <p className="mt-2 text-sm leading-6 text-slate-700">
-                {isNewInvestor
-                  ? "This screen is only a guide. Start with an amount in My Plan and review the draft calmly before deciding anything."
-                  : action.description}
-              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-700">{action.description}</p>
             </div>}
           </div>
 
           {overview && <div className="rounded-lg bg-slate-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{isNewInvestor ? "What you need to know" : "Why?"}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Why?</p>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              {isNewInvestor
-                ? "The model updates monthly, and the daily risk overlay may slow or pause fresh buys. You do not need to understand every factor before starting."
-                : isRetainDecision
+              {isRetainDecision
                 ? "The model is retaining the current allocation. Market conditions have not changed enough to warrant a rebalance."
                 : `The model has approved a rebalance. The top factor is ${Object.entries({ Momentum: allocation?.momentum_weight || 0, Value: allocation?.value_weight || 0, Quality: allocation?.quality_weight || 0, "Low Volatility": allocation?.low_volatility_weight || 0 }).sort((a, b) => b[1] - a[1])[0]?.[0] || "Quality"} at ${formatPercent(Math.max(allocation?.momentum_weight || 0, allocation?.value_weight || 0, allocation?.quality_weight || 0, allocation?.low_volatility_weight || 0), 0)}.`}
             </p>
-            {!isNewInvestor && decision?.reason && (
+            {decision?.reason && (
               <p className="mt-2 text-xs text-slate-500">Model detail: {decision.reason}</p>
             )}
             <div className="mt-4 flex flex-wrap gap-3">
@@ -216,28 +130,9 @@ export function CommandCenterPage({
       </section>
 
       {/* ── YOUR PORTFOLIO ────────────────────────────────────────────────── */}
-      {isNewInvestor ? (
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-800 mb-4">Start Without Pressure</h3>
-        <div className="grid gap-3 md:grid-cols-3">
-          {[
-            ["1", "Choose an amount", "Use money you are comfortable reviewing, not committing blindly."],
-            ["2", "See a draft", "My Plan turns the model into simple buy ideas and cash remaining."],
-            ["3", "Decide later", "You can save, change the amount, or do nothing. No trade happens here."],
-          ].map(([step, title, detail]) => (
-            <div key={step} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-bold text-blue-700">{step}</span>
-              <p className="mt-3 text-sm font-semibold text-slate-950">{title}</p>
-              <p className="mt-1 text-xs leading-5 text-slate-600">{detail}</p>
-            </div>
-          ))}
-        </div>
-        <button onClick={() => onNavigate("my-plan")} className="mt-4 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Open My Plan</button>
-      </section>
-      ) : (
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-800 mb-4">Your Portfolio</h3>
-        {portfolioLoading ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">Loading your saved portfolio…</p> : portfolioError ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">Your saved portfolio is unavailable. Try again later; values are hidden until the data loads.</p> : holdings.length === 0 && cash === 0 ? <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"><p className="font-medium text-slate-800">Add your existing holdings</p><p className="mt-1">{journey === "existing-investor-fresh-money" ? "Add your current holdings and fresh investment amount in My Plan to compare both with model targets." : "Add or import your current holdings in My Plan to compare them with model targets."}</p><button onClick={() => onNavigate("my-plan")} className="mt-3 rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-800">Review holdings in My Plan</button></div> : <>
+        {portfolioLoading ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">Loading your saved portfolio…</p> : portfolioError ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">Your saved portfolio is unavailable. Try again later; values are hidden until the data loads.</p> : holdings.length === 0 && cash === 0 ? <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"><p className="font-medium text-slate-800">{journey === "new-investor" ? "Your portfolio is empty" : "Add your existing holdings"}</p><p className="mt-1">{journey === "new-investor" ? "Enter an amount in My Plan to see a simple model-based starting plan." : journey === "existing-investor-fresh-money" ? "Add your current holdings and fresh investment amount in My Plan to compare both with model targets." : "Add or import your current holdings in My Plan to compare them with model targets."}</p><button onClick={() => onNavigate("my-plan")} className="mt-3 rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-800">{journey === "new-investor" ? "Start My Plan" : "Review holdings in My Plan"}</button></div> : <>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard
             label="Portfolio Value"
@@ -280,10 +175,9 @@ export function CommandCenterPage({
         </div>
         </>}
       </section>
-      )}
 
       {/* ── MODEL VIEW ────────────────────────────────────────────────────── */}
-      {!isNewInvestor && overview && <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      {overview && <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-4">
           <h3 className="text-sm font-semibold text-slate-800">Model View</h3>
           <TermTooltip term="factor">

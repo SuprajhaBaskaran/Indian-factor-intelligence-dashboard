@@ -3,6 +3,8 @@ import { Badge, Card, StatCard } from "@/components/UI";
 import { TermTooltip } from "@/components/TermTooltip";
 import { formatPercent, getMarketIndex, getMacroData, getSectorIndex, getNewsArticles, getLatestRegime, getLatestAllocation } from "@/lib/data";
 
+export { MarketViewPage } from "./MarketViewPagePro";
+
 function getMarketTrend(marketIndex: { month: string; close: number | null; return: number | null }[]): { direction: string; label: string; color: string } {
   if (marketIndex.length < 2) return { direction: "unknown", label: "Unknown", color: "slate" };
   const latest = marketIndex[marketIndex.length - 1];
@@ -38,7 +40,9 @@ function getTopSectors(sectorIndex: SectorIndexRow[], n = 5): { name: string; re
     .map((s) => ({ name: s.index_name, return: s.return ?? null }));
 }
 
-export function MarketViewPage() {
+// Kept only as a reference for the previous market screen; the route exports MarketViewPagePro above.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function LegacyMarketViewPage() {
   const marketIndex = getMarketIndex();
   const macroData = getMacroData();
   const sectorIndex = getSectorIndex();

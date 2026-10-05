@@ -13,7 +13,7 @@ import { AdminStatusPage } from "@/pages/AdminStatusPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
 import { loadDashboardData } from "@/lib/data";
 import { logBackendStatus } from "@/lib/supabase";
-import { readUserExperienceFromAccount } from "@/lib/userExperience";
+import { readUserExperience } from "@/lib/userExperience";
 
 const pathFor: Record<PageId, string> = {
   "command-center": "/",
@@ -52,6 +52,7 @@ function AppInner() {
   const [attempt, setAttempt] = useState(0);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const { user, loading, isDevelopmentUser, isAdmin } = useAuth();
+  const userId = user?.id;
   const welcomedAdmin = useRef<string | null>(null);
 
   useEffect(() => {
@@ -72,20 +73,8 @@ function AppInner() {
   }, []);
 
   useEffect(() => {
-    let active = true;
-    if (!user || isAdmin) {
-      setNeedsOnboarding(false);
-      return () => { active = false; };
-    }
-    readUserExperienceFromAccount(user.id)
-      .then((experience) => {
-        if (active) setNeedsOnboarding(!experience);
-      })
-      .catch(() => {
-        if (active) setNeedsOnboarding(true);
-      });
-    return () => { active = false; };
-  }, [isAdmin, user?.id]);
+    setNeedsOnboarding(Boolean(userId && !isAdmin && !readUserExperience(userId)));
+  }, [isAdmin, userId]);
 
   useEffect(() => {
     if (!user) {
