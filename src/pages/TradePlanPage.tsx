@@ -29,13 +29,13 @@ function getHoldingInputIssues(text: string): string[] {
   return text
     .split(/\r?\n/)
     .map((line, index) => ({ line: line.trim(), lineNumber: index + 1 }))
-    .filter(({ line }) => line.length > 0)
     .flatMap(({ line, lineNumber }) => {
       const [symbolRaw, qtyRaw] = line.split(/[,\t ]+/);
+      if (!symbolRaw && !qtyRaw) return [];
       const issues: string[] = [];
-      if (!symbolRaw) issues.push(`Line ${lineNumber}: missing symbol.`);
+      if (!symbolRaw) issues.push(`Holding ${lineNumber}: add a stock symbol or remove this row.`);
       if (!qtyRaw || !Number.isFinite(Number(qtyRaw))) {
-        issues.push(`Line ${lineNumber}: quantity must be a number, for example ${symbolRaw || "RELIANCE"},3.`);
+        issues.push(`Holding ${lineNumber}: enter how many shares you own.`);
       }
       return issues;
     });
@@ -864,7 +864,7 @@ export function TradePlanPage() {
 
               {holdingIssues.length > 0 && (
                 <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700">
-                  <p className="font-semibold">Fix these holding rows before saving</p>
+                  <p className="font-semibold">A holding needs a little more detail before saving</p>
                   {holdingIssues.slice(0, 4).map((issue) => <p key={issue}>{issue}</p>)}
                 </div>
               )}
