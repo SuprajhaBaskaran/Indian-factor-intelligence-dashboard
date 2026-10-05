@@ -16,7 +16,7 @@ Recommended: fine-grained token.
 Repository:
 
 ```text
-RethikaKJegan/indian-factor-intelligence-dashboard
+SuprajhaBaskaran/Indian-factor-intelligence-dashboard
 ```
 
 Permissions:
@@ -43,7 +43,7 @@ Basic settings:
 
 ```text
 Title: Indian Factor EOD Refresh
-URL: https://api.github.com/repos/RethikaKJegan/indian-factor-intelligence-dashboard/dispatches
+URL: https://api.github.com/repos/SuprajhaBaskaran/Indian-factor-intelligence-dashboard/dispatches
 Schedule timezone: Asia/Kolkata
 Schedule: Monday-Friday at 18:30
 Request method: POST
