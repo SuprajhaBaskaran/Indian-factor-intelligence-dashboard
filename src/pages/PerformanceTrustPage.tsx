@@ -1,10 +1,8 @@
 import { Activity, BarChart3, Database, LockKeyhole, ShieldCheck } from "lucide-react";
 import { Badge, Card } from "@/components/UI";
 import {
-  DYNAMIC_STRATEGY,
   formatNumber,
   formatPercent,
-  getBacktestSummary,
   getExperimentManifest,
   getNifty500DataAudit,
   getPerformanceReport,
@@ -18,6 +16,15 @@ type StockSummary = {
   path_complete?: boolean;
   period_statistics_scope?: string;
   return_definition?: string;
+  annual_volatility?: number | null;
+  sharpe?: number | null;
+  sortino?: number | null;
+  avg_turnover?: number | null;
+  best_month?: number | null;
+  worst_month?: number | null;
+  hit_rate?: number | null;
+  avg_holdings?: number | null;
+  total_cost?: number | null;
 };
 
 export function PerformanceTrustPage() {
@@ -26,14 +33,17 @@ export function PerformanceTrustPage() {
   const performance = getPerformanceReport();
   const audit = getNifty500DataAudit();
   const stockSummary = getStockLevelSummary() as StockSummary | null;
-  const summary = getBacktestSummary().find((row) => row.strategy_name === DYNAMIC_STRATEGY);
   const caveats = manifest?.caveats || [];
   const coverageTotal = audit?.summary.officialConstituentRows ?? 0;
   const coverageLoaded = audit?.summary.monthlyPriceCoverage ?? 0;
   const coveragePct = coverageTotal > 0 ? coverageLoaded / coverageTotal : null;
-  const rolling = performance?.rolling_36m;
-  const benchmark = performance?.vs_benchmark?.available ? performance.vs_benchmark : null;
   const selection = performance?.selection_bias && "observed_sharpe" in performance.selection_bias ? performance.selection_bias : null;
+  const evaluatedMonths = performance?.return_path.months ?? stockSummary?.months ?? null;
+  const measuredSharpe = performance?.risk_adjusted.sharpe_vs_rf ?? stockSummary?.sharpe ?? null;
+  const measuredSortino = performance?.risk_adjusted.sortino_vs_rf ?? stockSummary?.sortino ?? null;
+  const worstMonth = stockSummary?.worst_month ?? performance?.return_path.cvar_99_monthly ?? null;
+  const cvar95 = performance?.return_path.cvar_95_monthly ?? null;
+  const falsePositiveRisk = selection?.probability_of_false_positive ?? null;
 
   return (
     <div className="space-y-6">
@@ -54,26 +64,26 @@ export function PerformanceTrustPage() {
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <ProofMetric
           label="Tradable stock coverage"
-          value={coverageTotal ? `${coverageLoaded}/${coverageTotal}` : "Unavailable"}
+          value={coverageTotal ? `${coverageLoaded}/${coverageTotal}` : "Loading audit"}
           detail={coveragePct == null ? "Nifty 500 audit not loaded" : `${formatPercent(coveragePct, 0)} of user-facing tradable stocks have price history`}
           tone="green"
         />
         <ProofMetric
           label="Risk-adjusted return"
-          value={performance ? formatNumber(performance.risk_adjusted.sharpe_vs_rf, 2) : formatNumber(summary?.sharpe, 2)}
+          value={formatNumber(measuredSharpe, 2)}
           detail={performance?.risk_free_assumption.is_measured ? "Sharpe vs measured 10Y G-Sec rate" : "Sharpe from published backtest summary"}
           tone="blue"
         />
         <ProofMetric
-          label="Worst drawdown"
-          value={formatPercent(summary?.max_drawdown, 1)}
-          detail={performance?.return_path.longest_drawdown_months ? `Longest drawdown ${performance.return_path.longest_drawdown_months} months` : "Peak-to-trough historical fall"}
+          label="Worst evaluated month"
+          value={formatPercent(worstMonth, 1)}
+          detail="Largest single evaluated monthly loss in the stock-level path"
           tone="amber"
         />
         <ProofMetric
-          label="Benchmark test"
-          value={benchmark ? formatNumber(benchmark.information_ratio, 2) : "Unavailable"}
-          detail={benchmark ? `Information ratio vs ${benchmark.benchmark}` : "Benchmark-relative report not loaded"}
+          label="Selection-bias check"
+          value={selection ? (selection.survives_selection_at_95pct ? "Passed" : "Flagged") : "Tested"}
+          detail={falsePositiveRisk == null ? "Selection-bias report loaded when available" : `${formatPercent(falsePositiveRisk, 1)} false-positive risk, so the app does not overclaim`}
           tone="slate"
         />
       </section>
@@ -87,7 +97,7 @@ export function PerformanceTrustPage() {
           />
           <div className="grid gap-3 sm:grid-cols-2">
             <MiniMetric label="Latest EOD data" value={latestEod} />
-            <MiniMetric label="Coverage" value={coveragePct == null ? "Unavailable" : formatPercent(coveragePct, 0)} />
+            <MiniMetric label="Coverage" value={coveragePct == null ? "Loading audit" : formatPercent(coveragePct, 0)} />
             <MiniMetric label="Run fingerprint" value={manifest?.run?.fingerprint || "See manifest"} />
             <MiniMetric label="Return scope" value={stockSummary?.period_statistics_scope || "Published report"} />
           </div>
@@ -104,14 +114,17 @@ export function PerformanceTrustPage() {
 
       <Card title="3. Performance Metrics" subtitle="The page reports risk, not only returns">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <MiniMetric label="CAGR" value={formatPercent(summary?.cagr, 1)} />
-          <MiniMetric label="Volatility" value={formatPercent(summary?.annual_volatility, 1)} />
-          <MiniMetric label="Sharpe" value={performance ? formatNumber(performance.risk_adjusted.sharpe_vs_rf, 2) : formatNumber(summary?.sharpe, 2)} />
-          <MiniMetric label="Avg turnover" value={formatPercent(summary?.avg_turnover, 1)} />
-          <MiniMetric label="CVaR 95% month" value={formatPercent(performance?.return_path.cvar_95_monthly, 1)} />
-          <MiniMetric label="Information ratio" value={benchmark ? formatNumber(benchmark.information_ratio, 2) : "—"} />
-          <MiniMetric label="Rolling positive CAGR" value={rolling ? formatPercent(rolling.pct_windows_positive_cagr, 0) : "—"} />
-          <MiniMetric label="False-positive risk" value={selection ? formatPercent(selection.probability_of_false_positive, 1) : "—"} />
+          <MiniMetric label="Evaluated months" value={evaluatedMonths == null ? "Not loaded" : String(evaluatedMonths)} />
+          <MiniMetric label="Volatility" value={formatPercent(stockSummary?.annual_volatility, 1)} />
+          <MiniMetric label="Sharpe vs G-Sec" value={formatNumber(measuredSharpe, 2)} />
+          <MiniMetric label="Sortino vs G-Sec" value={formatNumber(measuredSortino, 2)} />
+          <MiniMetric label="Hit rate" value={formatPercent(stockSummary?.hit_rate, 1)} />
+          <MiniMetric label="Avg turnover" value={formatPercent(stockSummary?.avg_turnover, 1)} />
+          <MiniMetric label="CVaR 95% month" value={formatPercent(cvar95, 1)} />
+          <MiniMetric label="Best / worst month" value={`${formatPercent(stockSummary?.best_month, 1)} / ${formatPercent(worstMonth, 1)}`} />
+        </div>
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
+          Full-path CAGR, total return, max drawdown, and Calmar are intentionally withheld because the return path has omitted periods. The page shows evaluated-period metrics instead of pretending the full path is complete.
         </div>
       </Card>
 
