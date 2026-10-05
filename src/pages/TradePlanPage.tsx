@@ -19,10 +19,11 @@ import {
 } from "@/lib/product";
 import { useUserData, type UserHolding as PersistedHolding } from "@/lib/userData";
 import { getDecisionSnapshot } from "@/lib/product";
-import { getPortfolioTargets, getStocks } from "@/lib/data";
+import { getNifty500DataAudit, getPortfolioTargets, getStockSymbols, getStocks } from "@/lib/data";
 
 type TradeMode = "fresh" | "rebalance";
 type HoldingEntryMode = "import" | "manual" | "paste";
+type HoldingSymbolOption = { symbol: string; name: string; sector: string };
 
 function getHoldingInputIssues(text: string): string[] {
   return text
@@ -79,6 +80,107 @@ function getFreshPlanTone(action: string): { title: string; detail: string; colo
   };
 }
 
+function HoldingSymbolInput({
+  value,
+  options,
+  onChange,
+  onSelect,
+}: {
+  value: string;
+  options: HoldingSymbolOption[];
+  onChange: (value: string) => void;
+  onSelect: (symbol: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [highlighted, setHighlighted] = useState(0);
+  const query = value.trim().toUpperCase();
+  const matches = useMemo(() => {
+    const ranked = options
+      .filter((option) => {
+        if (!query) return true;
+        return `${option.symbol} ${option.name} ${option.sector}`.toUpperCase().includes(query);
+      })
+      .sort((a, b) => {
+        if (!query) return a.symbol.localeCompare(b.symbol);
+        const aStarts = a.symbol.startsWith(query) ? 0 : 1;
+        const bStarts = b.symbol.startsWith(query) ? 0 : 1;
+        return aStarts - bStarts || a.symbol.localeCompare(b.symbol);
+      });
+    return ranked.slice(0, 80);
+  }, [options, query]);
+
+  const choose = (symbol: string) => {
+    onSelect(symbol);
+    setOpen(false);
+    setHighlighted(0);
+  };
+
+  return (
+    <div className="relative">
+      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      <input
+        value={value}
+        onFocus={() => setOpen(true)}
+        onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+        onChange={(event) => {
+          onChange(event.target.value.toUpperCase());
+          setOpen(true);
+          setHighlighted(0);
+        }}
+        onKeyDown={(event) => {
+          if (!open && (event.key === "ArrowDown" || event.key === "Enter")) {
+            setOpen(true);
+            return;
+          }
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setHighlighted((current) => Math.min(current + 1, Math.max(0, matches.length - 1)));
+          } else if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setHighlighted((current) => Math.max(current - 1, 0));
+          } else if (event.key === "Enter" && matches[highlighted]) {
+            event.preventDefault();
+            choose(matches[highlighted].symbol);
+          } else if (event.key === "Escape") {
+            setOpen(false);
+          }
+        }}
+        className="w-full rounded-md border border-slate-300 py-2 pl-8 pr-2 text-sm font-semibold uppercase outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        placeholder="Search stock"
+        role="combobox"
+        aria-expanded={open}
+      />
+      {open && (
+        <div className="absolute left-0 right-0 top-[calc(100%+0.25rem)] z-30 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-xl">
+          {matches.length > 0 ? matches.map((option, index) => (
+            <button
+              key={option.symbol}
+              type="button"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                choose(option.symbol);
+              }}
+              className={`flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-xs ${
+                index === highlighted ? "bg-blue-50" : "hover:bg-slate-50"
+              }`}
+            >
+              <span className="min-w-0">
+                <span className="block font-bold text-slate-950">{option.symbol}</span>
+                <span className="block truncate text-slate-500">{option.name}</span>
+              </span>
+              <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                {option.sector || "Stock"}
+              </span>
+            </button>
+          )) : (
+            <div className="px-3 py-3 text-xs text-slate-500">No matching stock found</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function TradePlanPage() {
   const userData = useUserData();
   const { user } = useAuth();
@@ -132,6 +234,30 @@ export function TradePlanPage() {
   const cashPlan = buildCashDeploymentPlan(cash, [], minimumTradeValue);
   const targets = getPortfolioTargets();
   const stocks = getStocks();
+  const stockSymbols = getStockSymbols();
+  const nifty500Audit = getNifty500DataAudit();
+  const holdingSymbolOptions = useMemo(() => {
+    const bySymbol = new Map<string, HoldingSymbolOption>();
+    stocks.forEach((stock) => {
+      bySymbol.set(stock.symbol, { symbol: stock.symbol, name: stock.name, sector: stock.sector });
+    });
+    nifty500Audit?.rows.forEach((row) => {
+      if (!bySymbol.has(row.symbol)) {
+        bySymbol.set(row.symbol, {
+          symbol: row.symbol,
+          name: row.companyName,
+          sector: row.industry,
+        });
+      }
+    });
+    stockSymbols.forEach((symbol) => {
+      const normalized = symbol.replace(/-/g, "").toUpperCase();
+      if (!bySymbol.has(normalized)) {
+        bySymbol.set(normalized, { symbol: normalized, name: symbol, sector: "Price history available" });
+      }
+    });
+    return Array.from(bySymbol.values()).sort((a, b) => a.symbol.localeCompare(b.symbol));
+  }, [nifty500Audit, stockSymbols, stocks]);
   const snapshot = getDecisionSnapshot();
   const dailyRisk = assessDailyRisk();
   const freshTone = getFreshPlanTone(cashPlan.action);
@@ -645,7 +771,7 @@ export function TradePlanPage() {
                   <p className="text-sm font-semibold text-slate-900">Edit holdings</p>
                   <p className="mt-1 text-xs text-slate-500">Use this when you want Zerodha/Groww-style quick entry without a file.</p>
                 </div>
-                <div className="overflow-x-auto">
+                <div className="overflow-visible">
                   <table className="w-full min-w-[380px] text-sm">
                     <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                       <tr>
@@ -659,11 +785,11 @@ export function TradePlanPage() {
                       {manualRows.map((row, index) => (
                         <tr key={`${row.symbol}-${index}`} className="border-t border-slate-100">
                           <td className="px-3 py-2">
-                            <input
+                            <HoldingSymbolInput
                               value={row.symbol}
-                              onChange={(event) => updateManualRow(index, { symbol: event.target.value.toUpperCase() })}
-                              className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm font-semibold uppercase"
-                              placeholder="PFC"
+                              onChange={(value) => updateManualRow(index, { symbol: value })}
+                              onSelect={(symbol) => updateManualRow(index, { symbol })}
+                              options={holdingSymbolOptions}
                             />
                           </td>
                           <td className="px-3 py-2">
