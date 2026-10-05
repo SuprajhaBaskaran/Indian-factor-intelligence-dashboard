@@ -161,7 +161,7 @@ export function DecisionBadge({ decision }: { decision: string }) {
 type TableRow = Record<string, React.ReactNode>;
 
 interface TableProps {
-  columns: { key: string; label: string; align?: "left" | "right" | "center"; width?: string }[];
+  columns: { key: string; label: React.ReactNode; align?: "left" | "right" | "center"; width?: string }[];
   data: TableRow[];
   maxHeight?: string;
   rowKey?: (row: TableRow, idx: number) => string;

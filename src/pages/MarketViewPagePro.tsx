@@ -241,8 +241,6 @@ export function MarketViewPage() {
     .sort((a, b) => (b.return ?? -Infinity) - (a.return ?? -Infinity));
   const positiveSectorCount = sectors.filter((row) => (row.return ?? 0) > 0).length;
   const breadth = sectors.length > 0 ? positiveSectorCount / sectors.length : null;
-  const topSectors = sectors.slice(0, 5);
-  const weakSectors = [...sectors].reverse().slice(0, 3);
   const curatedNews = getRelevantNews(newsArticles);
   const newsThemes = buildNewsThemes(newsArticles);
 
@@ -419,45 +417,7 @@ export function MarketViewPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-        <Card title="Sector Map" subtitle="Leadership and weakness in the latest month">
-          <div className="grid gap-5 lg:grid-cols-2">
-            <div>
-              <p className="mb-3 text-xs font-semibold uppercase text-slate-500">Leaders</p>
-              <div className="space-y-3">
-                {topSectors.map((sector) => (
-                  <div key={sector.index_name}>
-                    <div className="mb-1 flex items-center justify-between gap-3 text-sm">
-                      <span className="truncate font-semibold text-slate-800">{sector.index_name.replace("NIFTY ", "")}</span>
-                      <span className={pctClass(sector.return)}>{formatPercent(sector.return, 1)}</span>
-                    </div>
-                    <ProgressBar value={Math.max(0.01, Math.abs(sector.return ?? 0))} max={0.12} color={(sector.return ?? 0) >= 0 ? "#059669" : "#dc2626"} height={6} />
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="mb-3 text-xs font-semibold uppercase text-slate-500">Pressure pockets</p>
-              <div className="space-y-3">
-                {weakSectors.map((sector) => (
-                  <div key={sector.index_name}>
-                    <div className="mb-1 flex items-center justify-between gap-3 text-sm">
-                      <span className="truncate font-semibold text-slate-800">{sector.index_name.replace("NIFTY ", "")}</span>
-                      <span className={pctClass(sector.return)}>{formatPercent(sector.return, 1)}</span>
-                    </div>
-                    <ProgressBar value={Math.max(0.01, Math.abs(sector.return ?? 0))} max={0.12} color={(sector.return ?? 0) >= 0 ? "#059669" : "#dc2626"} height={6} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          {breadth !== null && (
-            <p className="mt-5 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-600">
-              Breadth is {formatPercent(breadth, 0)}: {positiveSectorCount} out of {sectors.length} sectors are positive in the latest month.
-            </p>
-          )}
-        </Card>
-
+      <div>
         <Card title="Timeframe Check" subtitle="Short-term noise versus longer-term trend">
           <div className="grid gap-3 sm:grid-cols-3">
             {[

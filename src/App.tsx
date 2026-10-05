@@ -141,7 +141,7 @@ function AppInner() {
   if (needsOnboarding && !isAdmin) return <OnboardingPage user={user} onComplete={() => setNeedsOnboarding(false)} />;
 
   const content = route === "command-center"
-    ? <CommandCenterPage user={user} onNavigate={(page) => navigate(page === "my-plan" ? "trade-plan" : page === "trust" ? "performance-trust" : "advanced-research")} />
+    ? <CommandCenterPage user={user} onNavigate={(page) => navigate(page === "my-plan" ? "trade-plan" : "performance-trust")} />
     : route === "market-view" ? <MarketViewPage />
     : route === "trade-plan" ? <TradePlanPage />
     : route === "my-portfolio" ? <FinalPortfolioPage onNavigate={navigate} />

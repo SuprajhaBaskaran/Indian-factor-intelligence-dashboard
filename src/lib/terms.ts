@@ -143,6 +143,46 @@ export const TERM_DEFINITIONS: Record<string, TermDefinition> = {
     definition: "The percentage of your portfolio the model wants you to hold in a particular stock. For example, a 5% target weight means the model wants 5% of your portfolio in that stock.",
     category: "performance",
   },
+  "latest signal": {
+    term: "Latest Signal",
+    definition: "The most recent monthly model instruction recorded for this stock, such as Buy, Add, Hold, Reduce, or Sell. It is a decision-support signal, not an executed order.",
+    category: "model",
+  },
+  "price history": {
+    term: "Price History",
+    definition: "The stored historical price series available for this stock. In this dashboard it is used for charts, model context, and reference prices; it is not a live market feed.",
+    category: "model",
+  },
+  "reference price": {
+    term: "Reference Price",
+    definition: "The latest available stored price used by the dashboard for calculations. It helps size plans, but actual market prices can move before you trade.",
+    category: "model",
+  },
+  "model basket": {
+    term: "Model Basket",
+    definition: "The group of stocks selected by the current monthly model after factor scoring, regime weighting, and portfolio constraints.",
+    category: "model",
+  },
+  "ai candidate": {
+    term: "AI Candidate",
+    definition: "A stock surfaced by the broader Nifty 500 candidate scan. It can be useful for discovery, but it is not the same as a fully validated Nifty 200 portfolio target.",
+    category: "model",
+  },
+  "buy zone": {
+    term: "Buy Zone",
+    definition: "A practical price area around the model's reference price. It is shown to discourage chasing a stock after it has already moved too far.",
+    category: "action",
+  },
+  "free cash": {
+    term: "Free Cash",
+    definition: "Cash available in your portfolio that can be used for new purchases if the model gate and daily risk overlay allow fresh deployment.",
+    category: "action",
+  },
+  "unrealized pnl": {
+    term: "Unrealized P&L",
+    definition: "The estimated profit or loss on holdings you still own, based on entered average price and the latest available stored price.",
+    category: "performance",
+  },
   "model weight": {
     term: "Model Weight",
     definition: "The share of the model portfolio assigned to a stock or factor. It is a target for comparison, not an order or a promise of return.",

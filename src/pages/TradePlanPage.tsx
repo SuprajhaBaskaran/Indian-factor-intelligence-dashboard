@@ -35,7 +35,7 @@ function getHoldingInputIssues(text: string): string[] {
       const issues: string[] = [];
       if (!symbolRaw) issues.push(`Line ${lineNumber}: missing symbol.`);
       if (!qtyRaw || !Number.isFinite(Number(qtyRaw))) {
-        issues.push(`Line ${lineNumber}: quantity must be a number, for example ${symbolRaw || "PFC"},3.`);
+        issues.push(`Line ${lineNumber}: quantity must be a number, for example ${symbolRaw || "RELIANCE"},3.`);
       }
       return issues;
     });
@@ -47,6 +47,28 @@ function holdingsToText(rows: UserHolding[]): string {
 
 function createBlankHoldingRows(rows: UserHolding[]): UserHolding[] {
   return rows.length ? rows : [{ symbol: "", quantity: 0, avgPrice: undefined }];
+}
+
+function parseHoldingEditorRows(text: string): UserHolding[] {
+  const lines = text.split(/\r?\n/);
+  const rows = lines
+    .map((line) => {
+      const touched = line.trim().length > 0;
+      const [symbolRaw = "", qtyRaw = "", avgRaw = ""] = line.trim().split(/[,\t ]+/);
+      return {
+        symbol: symbolRaw.trim().toUpperCase(),
+        quantity: qtyRaw ? Number(qtyRaw) || 0 : 0,
+        avgPrice: avgRaw ? Number(avgRaw) || undefined : undefined,
+        touched,
+      };
+    })
+    .filter((row) => row.touched || row.symbol || row.quantity || row.avgPrice)
+    .map((row) => ({
+      symbol: row.symbol,
+      quantity: row.quantity,
+      avgPrice: row.avgPrice,
+    }));
+  return createBlankHoldingRows(rows);
 }
 
 function formatPriceRange(price: number): string {
@@ -149,6 +171,7 @@ function HoldingSymbolInput({
         placeholder="Search stock"
         role="combobox"
         aria-expanded={open}
+        aria-autocomplete="list"
       />
       {open && (
         <div className="absolute left-0 right-0 top-[calc(100%+0.25rem)] z-30 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-xl">
@@ -225,7 +248,7 @@ export function TradePlanPage() {
 
   const holdings = useMemo(() => parseHoldingsText(holdingsText), [holdingsText]);
   const hasHoldings = holdings.length > 0;
-  const manualRows = createBlankHoldingRows(holdings);
+  const manualRows = useMemo(() => parseHoldingEditorRows(holdingsText), [holdingsText]);
   const cash = Number(cashText) || 0;
   const minimumTradeValue = Number(minimumTradeText) || 0;
   const holdingIssues = getHoldingInputIssues(holdingsText);
@@ -421,14 +444,14 @@ export function TradePlanPage() {
   const planEdited = savedInput !== null && (savedInput.holdings !== holdingsText || savedInput.cash !== cashText);
 
   const updateManualRow = (index: number, patch: Partial<UserHolding>) => {
-    const next = createBlankHoldingRows(holdings).map((row, rowIndex) =>
+    const next = manualRows.map((row, rowIndex) =>
       rowIndex === index ? { ...row, ...patch } : row
     );
     setHoldingsText(holdingsToText(next));
   };
 
   const addManualRow = () => {
-    setHoldingsText(holdingsToText([...holdings, { symbol: "", quantity: 0, avgPrice: undefined }]));
+    setHoldingsText(holdingsToText([...manualRows, { symbol: "", quantity: 0, avgPrice: undefined }]));
   };
 
   const loadBulkHoldings = () => {
@@ -438,7 +461,7 @@ export function TradePlanPage() {
   };
 
   const removeManualRow = (index: number) => {
-    const next = createBlankHoldingRows(holdings).filter((_, rowIndex) => rowIndex !== index);
+    const next = manualRows.filter((_, rowIndex) => rowIndex !== index);
     setHoldingsText(holdingsToText(next));
   };
 
@@ -546,13 +569,6 @@ export function TradePlanPage() {
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setMode("fresh")}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Plan fresh money instead
-            </button>
           </div>
         </div>
       )}
@@ -686,14 +702,14 @@ export function TradePlanPage() {
                 <div className="rounded-xl border border-slate-200 bg-white">
                   <div className="border-b border-slate-100 px-4 py-3">
                     <p className="text-sm font-semibold text-slate-900">Paste holdings</p>
-                    <p className="mt-1 text-xs text-slate-500">One row per stock, for example PFC,10,420</p>
+                    <p className="mt-1 text-xs text-slate-500">One row per stock, for example RELIANCE,3,2850</p>
                   </div>
                   <div className="p-4">
                     <textarea
                       value={bulkEntryText}
                       onChange={(event) => setBulkEntryText(event.target.value)}
                       className="h-24 w-full rounded-lg border border-slate-300 p-3 font-mono text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      placeholder={"PFC,10,420\nBAJFINANCE,4,950\nAMBUJACEM,20"}
+                      placeholder={"RELIANCE,3,2850\nTCS,2,3900\nINFY,5,1500"}
                     />
                     <button
                       onClick={loadBulkHoldings}
@@ -714,7 +730,7 @@ export function TradePlanPage() {
                       <p className="mt-1 text-lg font-bold text-slate-950">{formatCurrency(holdingsMarketValue)}</p>
                     </div>
                     <div className="rounded-lg border border-slate-200 bg-white p-3">
-                      <p className="text-xs font-semibold text-slate-500">Unrealized P&L</p>
+                      <p className="text-xs font-semibold text-slate-500"><TermTooltip term="unrealized pnl">Unrealized P&L</TermTooltip></p>
                       <p className={`mt-1 text-lg font-bold ${holdingsPnl >= 0 ? "text-emerald-700" : "text-red-700"}`}>
                         {holdingsPnl >= 0 ? "+" : ""}{formatCurrency(holdingsPnl)}
                       </p>
@@ -769,7 +785,7 @@ export function TradePlanPage() {
               <div className={`rounded-xl border border-slate-200 bg-white ${holdingEntryMode === "manual" ? "" : "hidden"}`}>
                 <div className="border-b border-slate-100 px-4 py-3">
                   <p className="text-sm font-semibold text-slate-900">Edit holdings</p>
-                  <p className="mt-1 text-xs text-slate-500">Use this when you want Zerodha/Groww-style quick entry without a file.</p>
+                  <p className="mt-1 text-xs text-slate-500">Start typing a symbol or company name. Examples: RELIANCE, TCS, INFY, HDFCBANK.</p>
                 </div>
                 <div className="overflow-visible">
                   <table className="w-full min-w-[380px] text-sm">
@@ -883,7 +899,7 @@ export function TradePlanPage() {
                     <p className="mt-1 text-lg font-bold text-slate-900">{formatCurrency(cashPlan.totalUsed)}</p>
                   </div>
                   <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <p className="text-xs text-slate-500">Cash remaining</p>
+                    <p className="text-xs text-slate-500"><TermTooltip term="free cash">Cash remaining</TermTooltip></p>
                     <p className="mt-1 text-lg font-bold text-slate-900">{formatCurrency(cashPlan.cashLeft)}</p>
                   </div>
                 </div>
@@ -953,7 +969,7 @@ export function TradePlanPage() {
                       columns={[
                         { key: "stock", label: "Stock" },
                         { key: "action", label: "Qty" },
-                        { key: "buyZone", label: "Buy zone", align: "right" },
+                        { key: "buyZone", label: <TermTooltip term="buy zone">Buy zone</TermTooltip>, align: "right" },
                         { key: "amount", label: "Max spend", align: "right" },
                         { key: "reason", label: "Why" },
                       ]}
@@ -1076,7 +1092,7 @@ export function TradePlanPage() {
                         value={customStockQuery}
                         onChange={(event) => setCustomStockQuery(event.target.value.toUpperCase())}
                         className="w-full rounded-lg border border-slate-300 py-3 pl-9 pr-3 text-sm font-semibold uppercase outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                        placeholder="Type RELIANCE, TCS, PFC..."
+                        placeholder="Type RELIANCE, TCS, INFY..."
                       />
                     </div>
                   </label>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Search } from "lucide-react";
 import { Badge, Card, SignalBadge, Table } from "@/components/UI";
 import { TermTooltip } from "@/components/TermTooltip";
@@ -34,7 +34,7 @@ export function StockInspectorPage() {
   const recommendationUniverses = getRecommendationUniverses();
   const nifty500Rows = useMemo(() => nifty500Audit?.rows || [], [nifty500Audit]);
   const [recommendationMode, setRecommendationMode] = useState<"nifty200" | "nifty500">("nifty500");
-  const [symbol, setSymbol] = useState(symbols.includes("PFC") ? "PFC" : symbols[0] || "");
+  const [symbol, setSymbol] = useState("");
   const [search, setSearch] = useState(symbol);
   const normalized = symbol.trim().toUpperCase();
   const priceCoveredSymbols = useMemo(() => new Set(symbols.map((item) => item.replace(/-/g, "").toUpperCase())), [symbols]);
@@ -283,8 +283,8 @@ export function StockInspectorPage() {
             </div>
             <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4">
               <QuoteMetric label="Status" value={row ? "Model basket" : stockReadiness === "needs-data" ? "Limited coverage" : discoveryRow ? "Covered stock" : "Not in dataset"} />
-              <QuoteMetric label="Target weight" value={row ? formatPercent(currentModelWeight, 2) : "Not selected"} />
-              <QuoteMetric label="Latest signal" value={latestSignal} />
+              <QuoteMetric label={<TermTooltip term="target weight">Target weight</TermTooltip>} value={row ? formatPercent(currentModelWeight, 2) : "Not selected"} />
+              <QuoteMetric label={<TermTooltip term="latest signal">Latest signal</TermTooltip>} value={latestSignal} />
               <QuoteMetric label="Your action" value={actionText} />
             </div>
             {selectedCandidate && !row && (
@@ -338,7 +338,7 @@ export function StockInspectorPage() {
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Metric label="Price history" value={hasVerifiedPriceHistory ? "Available" : "Not loaded"} />
+              <Metric label={<TermTooltip term="price history">Price history</TermTooltip>} value={hasVerifiedPriceHistory ? "Available" : "Not loaded"} />
               <Metric label="Months available" value={`${prices.length || discoveryRow.priceMonthCount}`} />
               <Metric label="Last price month" value={latestPricePoint?.month || discoveryRow.lastPriceMonth || "Not available"} />
               <Metric label="Latest close" value={latestPrice > 0 ? formatCurrency(latestPrice) : "Not available"} />
@@ -365,7 +365,7 @@ export function StockInspectorPage() {
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <Metric label="You hold" value={`${row.currentQuantity} shares`} />
               <Metric label="Plan wants" value={`${row.targetQuantity} shares`} />
-              <Metric label="Target weight" value={formatPercent(row.targetWeight, 2)} />
+              <Metric label={<TermTooltip term="target weight">Target weight</TermTooltip>} value={formatPercent(row.targetWeight, 2)} />
               <Metric label="Trade value" value={hasPortfolioContext && latestPrice > 0 ? formatCurrency(row.tradeValue) : "Needs plan input"} />
             </div>
           </div>
@@ -537,7 +537,7 @@ function getSignalColor(signal: string) {
   return "#64748b";
 }
 
-function QuoteMetric({ label, value }: { label: string; value: string }) {
+function QuoteMetric({ label, value }: { label: ReactNode; value: string }) {
   return (
     <div className="rounded-lg bg-slate-50 p-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
@@ -546,7 +546,7 @@ function QuoteMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value }: { label: ReactNode; value: string }) {
   return (
     <div className="rounded-lg bg-slate-50 p-3">
       <p className="text-xs text-slate-500">{label}</p>

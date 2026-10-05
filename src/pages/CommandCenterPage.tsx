@@ -30,7 +30,7 @@ export function CommandCenterPage({
   onNavigate,
   user,
 }: {
-  onNavigate: (page: "my-plan" | "trust" | "research") => void;
+  onNavigate: (page: "my-plan" | "trust") => void;
   user: UserProfile;
 }) {
   const userData = useUserData();

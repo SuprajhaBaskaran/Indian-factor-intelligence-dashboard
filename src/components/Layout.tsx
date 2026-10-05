@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import {
   Activity, BriefcaseBusiness, ChartNoAxesCombined, Database, LayoutDashboard,
-  LogOut, Search, Settings, ShieldCheck, SlidersHorizontal, TrendingUp,
+  LogOut, Search, Settings, ShieldCheck, TrendingUp,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { getEodRefreshStatus, getExperimentManifest } from "@/lib/data";
@@ -31,7 +31,6 @@ const navigation: { id: PageId; label: string; icon: typeof LayoutDashboard; adm
   { id: "my-portfolio", label: "Portfolio", icon: BriefcaseBusiness },
   { id: "stock-inspector", label: "Stocks", icon: Search },
   { id: "performance-trust", label: "Trust", icon: ShieldCheck },
-  { id: "advanced-research", label: "Research", icon: SlidersHorizontal },
   { id: "admin-status", label: "Admin Status", icon: Settings, adminOnly: true },
 ];
 
