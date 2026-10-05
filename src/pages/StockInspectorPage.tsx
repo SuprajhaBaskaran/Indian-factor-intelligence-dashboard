@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Layers, Search, TrendingUp } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import { Badge, Card, SignalBadge, Table } from "@/components/UI";
 import { TermTooltip } from "@/components/TermTooltip";
 import { formatPercent, getNifty500DataAudit, getSignalEvents, getStockPrices, getStockSymbols, getStocks } from "@/lib/data";
 import { buildTradePlan, formatCurrency } from "@/lib/product";
 import { useUserData } from "@/lib/userData";
+import type { StockPricePoint, StockSignalEvent } from "@/types";
 
 export function StockInspectorPage() {
   const userData = useUserData();
@@ -27,25 +28,28 @@ export function StockInspectorPage() {
   const [search, setSearch] = useState(symbol);
   const normalized = symbol.trim().toUpperCase();
   const stockSearchRows = useMemo(() => {
-    const bySymbol = new Map<string, { symbol: string; name: string; sector: string; source: "model" | "nifty500" }>();
+    const bySymbol = new Map<string, { symbol: string; name: string; sector: string; source: "trade-plan" | "watchlist" }>();
     stockNames
       .filter((stock) => symbols.includes(stock.symbol))
-      .forEach((stock) => bySymbol.set(stock.symbol, { ...stock, source: "model" }));
+      .forEach((stock) => bySymbol.set(stock.symbol, { ...stock, source: "trade-plan" }));
     nifty500Rows.forEach((row) => {
       if (!bySymbol.has(row.symbol)) {
         bySymbol.set(row.symbol, {
           symbol: row.symbol,
           name: row.companyName,
           sector: row.industry,
-          source: "nifty500",
+          source: "watchlist",
         });
       }
     });
     return Array.from(bySymbol.values()).sort((a, b) => a.symbol.localeCompare(b.symbol));
   }, [nifty500Rows, stockNames, symbols]);
-  const matches = stockSearchRows
-    .filter((stock) => `${stock.symbol} ${stock.name}`.toLowerCase().includes(search.trim().toLowerCase()))
-    .slice(0, 8);
+  const query = search.trim().toLowerCase();
+  const searchResults = query
+    ? stockSearchRows
+      .filter((stock) => `${stock.symbol} ${stock.name} ${stock.sector}`.toLowerCase().includes(query))
+      .slice(0, 40)
+    : stockSearchRows;
   const discoveryRow = nifty500Rows.find((item) => item.symbol === normalized);
   const preview = buildTradePlan(holdings, cash);
   const row = preview.rows.find((item) => item.symbol === normalized);
@@ -55,10 +59,12 @@ export function StockInspectorPage() {
   const latestPricePoint = prices[prices.length - 1];
   const latestPrice = latestPricePoint?.adjusted_close || latestPricePoint?.close || row?.latestPrice || discoveryRow?.latestClose || 0;
   const priceSource = latestPricePoint
-    ? `monthly stock price · ${latestPricePoint.month}`
+    ? `Monthly price history, ${latestPricePoint.month}`
     : discoveryRow?.latestClose
-      ? `Nifty 500 audit price · ${discoveryRow.lastPriceMonth}`
-    : "";
+      ? `Watchlist audit price, ${discoveryRow.lastPriceMonth}`
+    : selectedSearchStock
+      ? "Price history has not been loaded for this symbol yet"
+      : "Select a stock from search";
   const hasPortfolioContext = holdings.length > 0 || cash > 0;
   const currentModelWeight = row?.targetWeight || signals[0]?.new_weight || 0;
   const latestSignal = signals[0]?.signal_type || (currentModelWeight > 0 ? "IN MODEL" : "WATCH");
@@ -69,116 +75,108 @@ export function StockInspectorPage() {
         ? `Sell ${Math.abs(row.finalTradeQuantity)}`
         : hasPortfolioContext
           ? "No trade now"
-          : "Add cash or holdings first"
-    : "No active plan row";
+          : "Add cash or holdings"
+    : "Watch only";
+  const actionTone = row?.finalTradeQuantity && row.finalTradeQuantity !== 0 ? "blue" : row ? "slate" : "amber";
   const actionExplanation = row
     ? !hasPortfolioContext
       ? "You have no saved holdings or plan cash yet, so this page can show the model view but cannot calculate your personal quantity."
       : row.reason
-    : "This stock is not in the current model target set. Use the signal history only as research context.";
+    : "This stock is searchable for research, but it is not in the current recommendation set. Do not force a buy from this page.";
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto w-full max-w-[1500px] space-y-5 overflow-x-hidden">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-900">Stocks</h2>
-          <p className="mt-1 text-sm text-slate-500">Search, inspect, and understand whether a stock belongs in the current model or only in discovery.</p>
+          <p className="mt-1 text-sm text-slate-500">Search the loaded stock universe and see whether it is actionable, watch-only, or missing price coverage.</p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
-          <Badge color="blue">Nifty 200 model</Badge>
-          <Badge color="amber">Nifty 500 discovery</Badge>
+          <Badge color="blue">Recommendation set</Badge>
+          <Badge color="amber">Watchlist universe</Badge>
         </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="space-y-4">
-          <Card title="Find Stock" subtitle="Search like a watchlist">
-            <label className="block text-xs font-medium text-slate-600">
-              Symbol or company
-              <div className="relative mt-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  role="combobox"
-                  aria-expanded={search.trim().length > 0 && matches.length > 0}
-                  aria-controls="stock-search-options"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  onKeyDown={(event) => { if (event.key === "Enter" && matches[0]) { event.preventDefault(); setSymbol(matches[0].symbol); setSearch(matches[0].symbol); } }}
-                  className="w-full rounded-lg border border-slate-300 py-3 pl-9 pr-3 text-sm font-semibold uppercase outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  placeholder="PFC, TCS, ACC..."
-                />
+      <Card title="Find Stock" subtitle={`${stockSearchRows.length} stocks loaded. Type to filter, or press Enter to open the first match.`}>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            role="combobox"
+            aria-expanded={searchResults.length > 0}
+            aria-controls="stock-search-options"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => { if (event.key === "Enter" && searchResults[0]) { event.preventDefault(); setSymbol(searchResults[0].symbol); setSearch(searchResults[0].symbol); } }}
+            className="w-full rounded-lg border border-slate-300 py-3 pl-9 pr-3 text-sm font-semibold uppercase outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            placeholder="Search symbol, company, or sector"
+          />
+        </div>
+        <div id="stock-search-options" role="listbox" className="mt-4 grid max-h-[360px] gap-2 overflow-auto pr-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {searchResults.map((stock) => (
+            <button
+              key={stock.symbol}
+              type="button"
+              role="option"
+              aria-selected={normalized === stock.symbol}
+              onClick={() => { setSymbol(stock.symbol); setSearch(stock.symbol); }}
+              className={`min-w-0 rounded-lg border p-3 text-left transition ${
+                normalized === stock.symbol
+                  ? "border-blue-300 bg-blue-50"
+                  : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-bold text-slate-950">{stock.symbol}</p>
+                  <p className="mt-0.5 truncate text-xs text-slate-500">{stock.name}</p>
+                </div>
+                <Badge color={stock.source === "trade-plan" ? "blue" : "amber"} size="xs">
+                  {stock.source === "trade-plan" ? "Plan" : "Watch"}
+                </Badge>
               </div>
-            </label>
-            <div id="stock-search-options" role="listbox" className="mt-3 max-h-[420px] space-y-2 overflow-auto pr-1">
-              {(search.trim().length > 0 ? matches : stockSearchRows.slice(0, 12)).map((stock) => (
-                <button
-                  key={stock.symbol}
-                  type="button"
-                  role="option"
-                  aria-selected={normalized === stock.symbol}
-                  onClick={() => { setSymbol(stock.symbol); setSearch(stock.symbol); }}
-                  className={`w-full rounded-lg border p-3 text-left transition ${
-                    normalized === stock.symbol
-                      ? "border-blue-300 bg-blue-50"
-                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-bold text-slate-950">{stock.symbol}</p>
-                      <p className="mt-0.5 truncate text-xs text-slate-500">{stock.name}</p>
-                    </div>
-                    <Badge color={stock.source === "model" ? "blue" : "amber"} size="xs">
-                      {stock.source === "model" ? "Model" : "N500"}
-                    </Badge>
-                  </div>
-                  <p className="mt-2 truncate text-xs text-slate-500">{stock.sector || "Sector unavailable"}</p>
-                </button>
-              ))}
-            </div>
-          </Card>
-
-          <Card title="What This Page Answers" subtitle="Use before opening a broker app">
-            <div className="space-y-3 text-sm leading-6 text-slate-600">
-              <InfoLine icon={<Search className="h-4 w-4" />} text="Is this stock known to the system?" />
-              <InfoLine icon={<Layers className="h-4 w-4" />} text="Is it in the live model universe or only discovery?" />
-              <InfoLine icon={<TrendingUp className="h-4 w-4" />} text="Do I have a personal action or just research context?" />
-            </div>
-          </Card>
-        </aside>
-
-        <main className="min-w-0 space-y-5">
-          <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 p-5">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <p className="mt-2 truncate text-xs text-slate-500">{stock.sector || "Sector unavailable"}</p>
+            </button>
+          ))}
+        </div>
+      </Card>
+      <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="grid gap-4 border-b border-slate-100 p-5 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-start">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-2xl font-bold text-slate-950">{normalized || "Select a stock"}</h3>
-                    {row && <Badge color="blue">Live model</Badge>}
-                    {!row && discoveryRow && <Badge color="amber">Nifty 500 discovery</Badge>}
+                    {row && <Badge color="blue">Recommendation set</Badge>}
+                    {!row && discoveryRow && <Badge color="amber">Watchlist universe</Badge>}
                     {!row && !discoveryRow && <Badge color="slate">Not loaded</Badge>}
                   </div>
                   <p className="mt-1 text-sm text-slate-500">
                     {selectedSearchStock?.name || discoveryRow?.companyName || "Company name unavailable"}
                     {(selectedSearchStock?.sector || discoveryRow?.industry || row?.sector) && (
-                      <span> · {selectedSearchStock?.sector || discoveryRow?.industry || row?.sector}</span>
+                      <span> | {selectedSearchStock?.sector || discoveryRow?.industry || row?.sector}</span>
                     )}
                   </p>
+                  {!row && discoveryRow && (
+                    <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+                      This stock is available for search and research. It is not used for trade recommendations until the larger universe has full price, fundamental, membership, and backtest coverage.
+                    </p>
+                  )}
                 </div>
-                <div className="rounded-xl bg-slate-50 px-4 py-3 text-right">
+                <div className="rounded-xl bg-slate-50 px-4 py-3 lg:text-right">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reference price</p>
-                  <p className="mt-1 text-2xl font-bold text-slate-950">{latestPrice > 0 ? formatCurrency(latestPrice) : "Unavailable"}</p>
-                  {priceSource && <p className="mt-1 text-xs text-slate-500">{priceSource}</p>}
+                  <p className="mt-1 text-2xl font-bold text-slate-950">{latestPrice > 0 ? formatCurrency(latestPrice) : "No verified price"}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">{priceSource}</p>
                 </div>
-              </div>
             </div>
-            <div className="grid gap-3 p-5 md:grid-cols-4">
-              <QuoteMetric label="Universe" value={row ? "Model" : discoveryRow ? "Discovery" : "Unknown"} />
-              <QuoteMetric label="Model weight" value={formatPercent(currentModelWeight, 2)} />
+            <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4">
+              <QuoteMetric label="Status" value={row ? "Actionable in plan" : discoveryRow ? "Research only" : "Not in dataset"} />
+              <QuoteMetric label="Target weight" value={row ? formatPercent(currentModelWeight, 2) : "No target"} />
               <QuoteMetric label="Latest signal" value={latestSignal} />
-              <QuoteMetric label="Portfolio action" value={actionText} />
+              <QuoteMetric label="Your action" value={actionText} />
             </div>
           </section>
+
+      <Card title="Model Chart" subtitle="Real monthly prices with model action markers">
+        <ModelSignalChart symbol={normalized} prices={prices} signals={signals} />
+      </Card>
 
           {holdingsLoading && <p role="status" className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">Loading saved holdings to calculate your portfolio relevance…</p>}
           {!holdingsLoading && holdingsError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">Saved holdings are unavailable. Personal trade sizing is hidden until the account data loads.</p>}
@@ -214,84 +212,193 @@ export function StockInspectorPage() {
       )}
 
           {row && !holdingsLoading && !holdingsError ? (
-        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <Card title="Personal Action" subtitle="Personalized using saved holdings and cash">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
+        <Card title="Personal Action" subtitle="Position sizing from saved cash and holdings">
+          <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+            <div className="rounded-xl bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current instruction</p>
+              <p className="mt-2 text-3xl font-bold text-slate-950">{actionText}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 {row.action === "PAUSED" || row.action === "IGNORED" ? (
                   <Badge color={row.action === "PAUSED" ? "amber" : "slate"}>{row.action}</Badge>
                 ) : (
                   <SignalBadge signal={row.action} />
                 )}
-                <Badge color="slate">{row.sector}</Badge>
-              </div>
-              {!hasPortfolioContext && (
-                <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm leading-6 text-blue-900">
-                  No saved portfolio yet. Enter cash in My Plan or add holdings, then this card will calculate your exact quantity and trade value.
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-3">
-                <Metric label="You have" value={`${row.currentQuantity} shares`} />
-                <Metric label="Model weight" value={formatPercent(currentModelWeight, 2)} />
-                <Metric label="Personal action" value={actionText} />
-                <Metric label="Trade value" value={hasPortfolioContext && latestPrice > 0 ? formatCurrency(row.tradeValue) : "Needs plan input"} />
-              </div>
-              <div className="rounded-lg bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Why</p>
-                <p className="mt-2 text-sm leading-6 text-slate-700">{actionExplanation}</p>
-                <p className="mt-2 text-xs text-slate-500">Factor source: {row.factorReason}</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  <TermTooltip term="target weight">Target weight</TermTooltip>: {formatPercent(row.targetWeight, 2)}
-                </p>
+                <Badge color={actionTone}>{row.sector}</Badge>
               </div>
             </div>
-          </Card>
-
-          <Card title="Signal History" subtitle="Latest monthly model actions">
-            <div className="mb-4 grid gap-3 md:grid-cols-3">
-              <Readout label="Latest model signal" value={latestSignal} detail="What changed in the model target list." />
-              <Readout label="Old wt -> new wt" value="Previous -> current target" detail="These are model portfolio weights, not your holding size." />
-              <Readout label="How to use it" value="Context, not a trade ticket" detail="Your personal action comes from My Plan after cash/holdings are saved." />
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Metric label="You hold" value={`${row.currentQuantity} shares`} />
+              <Metric label="Plan wants" value={`${row.targetQuantity} shares`} />
+              <Metric label="Target weight" value={formatPercent(row.targetWeight, 2)} />
+              <Metric label="Trade value" value={hasPortfolioContext && latestPrice > 0 ? formatCurrency(row.tradeValue) : "Needs plan input"} />
             </div>
-            <Table
-              maxHeight="420px"
-              columns={[
-                { key: "month", label: "Month" },
-                { key: "signal", label: "Signal", align: "center" },
-                { key: "price", label: "Price", align: "right" },
-                { key: "old", label: "Previous model wt", align: "right" },
-                { key: "new", label: "New model wt", align: "right" },
-                { key: "factor", label: "Factor" },
-              ]}
-              data={signals.map((signal) => ({
-                month: signal.month,
-                signal: <SignalBadge signal={signal.signal_type} />,
-                price: formatCurrency(signal.signal_price),
-                old: formatPercent(signal.old_weight, 2),
-                new: formatPercent(signal.new_weight, 2),
-                factor: signal.primary_factor,
-              }))}
-            />
-          </Card>
-        </div>
+          </div>
+          {!hasPortfolioContext && (
+            <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm leading-6 text-blue-900">
+              No saved portfolio yet. Enter cash in My Plan or add holdings, then this card will calculate your exact quantity and trade value.
+            </div>
+          )}
+          <div className="mt-5 rounded-lg bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Why this action</p>
+            <p className="mt-2 text-sm leading-6 text-slate-700">{actionExplanation}</p>
+            <p className="mt-2 text-xs text-slate-500">Factor source: {row.factorReason}</p>
+            <p className="mt-1 text-xs text-slate-500">
+              <TermTooltip term="target weight">Target weight</TermTooltip>: {formatPercent(row.targetWeight, 2)}
+            </p>
+          </div>
+        </Card>
       ) : (
-        !discoveryRow && <Card title="Stock data unavailable">
-          <p className="text-sm leading-6 text-slate-600">{symbols.includes(normalized) ? "No current model-plan row or analysis history is available for this stock in the loaded data." : "This stock is not present in the loaded stock data. Search the available symbols or check the spelling."}</p>
+        !discoveryRow && <Card title="Stock data not loaded">
+          <p className="text-sm leading-6 text-slate-600">{symbols.includes(normalized) ? "No current recommendation row or signal history is available for this stock in the loaded data." : "This stock is not present in the loaded dataset. Search the list above by symbol, company, or sector."}</p>
         </Card>
       )}
-        </main>
-      </div>
+
+      <Card title="Signal History" subtitle="Monthly recommendation changes for the selected stock">
+        <div className="mb-4 grid gap-3 md:grid-cols-3">
+          <Readout label="Latest signal" value={latestSignal} detail="The most recent monthly change in the recommendation set." />
+          <Readout label="Weights" value="Previous -> current" detail="These are strategy target weights, not the number of shares you own." />
+          <Readout label="How to use it" value="Context first" detail="Your exact trade comes from Personal Action after cash and holdings are saved." />
+        </div>
+        <Table
+          maxHeight="420px"
+          columns={[
+            { key: "month", label: "Month" },
+            { key: "signal", label: "Signal", align: "center" },
+            { key: "price", label: "Price", align: "right" },
+            { key: "old", label: "Prev wt", align: "right" },
+            { key: "new", label: "New wt", align: "right" },
+            { key: "factor", label: "Factor" },
+          ]}
+          data={signals.map((signal) => ({
+            month: signal.month,
+            signal: <SignalBadge signal={signal.signal_type} />,
+            price: formatCurrency(signal.signal_price),
+            old: formatPercent(signal.old_weight, 2),
+            new: formatPercent(signal.new_weight, 2),
+            factor: signal.primary_factor,
+          }))}
+          emptyMessage="No monthly signal history is loaded for this symbol yet."
+        />
+      </Card>
     </div>
   );
 }
 
-function InfoLine({ icon, text }: { icon: ReactNode; text: string }) {
+function ModelSignalChart({
+  symbol,
+  prices,
+  signals,
+  height = 360,
+}: {
+  symbol: string;
+  prices: StockPricePoint[];
+  signals: StockSignalEvent[];
+  height?: number;
+}) {
+  const width = 1000;
+  const pad = { top: 34, right: 74, bottom: 48, left: 64 };
+  const chartW = width - pad.left - pad.right;
+  const chartH = height - pad.top - pad.bottom;
+  const priceRows = prices
+    .map((price) => ({
+      month: price.month.slice(0, 7),
+      close: Number(price.adjusted_close || price.close || 0),
+    }))
+    .filter((price) => Number.isFinite(price.close) && price.close > 0);
+
+  if (!priceRows.length) {
+    return (
+      <div className="flex min-h-[280px] items-center justify-center rounded-lg bg-slate-50 px-4 text-center text-sm leading-6 text-slate-500">
+        No verified monthly price history is loaded for {symbol || "this stock"} yet, so the app will not draw a chart.
+      </div>
+    );
+  }
+
+  const monthIndex = new Map(priceRows.map((price, index) => [price.month, index]));
+  const signalRows = signals
+    .filter((signal) => monthIndex.has(signal.month.slice(0, 7)))
+    .map((signal) => ({ ...signal, monthKey: signal.month.slice(0, 7) }));
+  const allValues = [
+    ...priceRows.map((price) => price.close),
+    ...signalRows.map((signal) => Number(signal.signal_price || 0)).filter((value) => value > 0),
+  ];
+  const minY = Math.min(...allValues);
+  const maxY = Math.max(...allValues);
+  const yRange = maxY - minY || 1;
+  const yPad = yRange * 0.16;
+  const yMin = Math.max(0, minY - yPad);
+  const yMax = maxY + yPad;
+  const xStep = chartW / Math.max(1, priceRows.length - 1);
+  const xForIndex = (index: number) => pad.left + index * xStep;
+  const yForValue = (value: number) => pad.top + chartH - ((value - yMin) / (yMax - yMin)) * chartH;
+  const points = priceRows.map((price, index) => `${xForIndex(index)},${yForValue(price.close)}`).join(" ");
+  const yTicks = Array.from({ length: 5 }, (_, index) => yMin + ((yMax - yMin) * index) / 4);
+  const xTickSkip = Math.max(1, Math.ceil(priceRows.length / 8));
+  const firstMonth = priceRows[0]?.month ?? "";
+  const lastMonth = priceRows[priceRows.length - 1]?.month ?? "";
+
   return (
-    <div className="flex items-start gap-3 rounded-lg bg-slate-50 p-3">
-      <span className="mt-0.5 text-slate-500">{icon}</span>
-      <span>{text}</span>
+    <div className="w-full overflow-x-auto">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full min-w-[760px]" preserveAspectRatio="xMidYMid meet">
+        <rect x={0} y={0} width={width} height={height} rx={10} fill="#ffffff" />
+        <text x={pad.left} y={21} className="fill-slate-900 text-[15px] font-bold">{symbol} price and model signals</text>
+        <text x={width - pad.right} y={21} textAnchor="end" className="fill-slate-500 text-[12px]">{firstMonth} to {lastMonth}</text>
+        <g transform={`translate(${pad.left + 230} 11)`}>
+          <circle cx={0} cy={0} r={4} fill="#16a34a" />
+          <text x={10} y={4} className="fill-slate-500 text-[11px]">Buy/Add</text>
+          <circle cx={76} cy={0} r={4} fill="#dc2626" />
+          <text x={86} y={4} className="fill-slate-500 text-[11px]">Reduce/Sell</text>
+        </g>
+
+        {yTicks.map((value, index) => {
+          const y = yForValue(value);
+          return (
+            <g key={index}>
+              <line x1={pad.left} y1={y} x2={pad.left + chartW} y2={y} stroke="#e2e8f0" strokeWidth={1} strokeDasharray="3,4" />
+              <text x={pad.left - 10} y={y + 4} textAnchor="end" className="fill-slate-400 text-[10px]">{value.toFixed(0)}</text>
+              <text x={pad.left + chartW + 10} y={y + 4} className="fill-slate-400 text-[10px]">{value.toFixed(0)}</text>
+            </g>
+          );
+        })}
+
+        {priceRows.map((price, index) => {
+          if (index % xTickSkip !== 0 && index !== priceRows.length - 1) return null;
+          const x = xForIndex(index);
+          return <text key={price.month} x={x} y={pad.top + chartH + 28} textAnchor="middle" className="fill-slate-400 text-[10px]">{price.month}</text>;
+        })}
+
+        <polyline points={points} fill="none" stroke="#2563eb" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+
+        {signalRows.map((signal, index) => {
+          const priceIndex = monthIndex.get(signal.monthKey) ?? 0;
+          const x = xForIndex(priceIndex);
+          const signalPrice = Number(signal.signal_price || priceRows[priceIndex]?.close || 0);
+          const y = yForValue(signalPrice);
+          const color = getSignalColor(signal.signal_type);
+          const isSellish = signal.signal_type === "SELL" || signal.signal_type === "REDUCE";
+          const size = index === 0 ? 9 : 7;
+          const markerPoints = isSellish
+            ? `${x},${y + size} ${x - size},${y - size} ${x + size},${y - size}`
+            : `${x},${y - size} ${x - size},${y + size} ${x + size},${y + size}`;
+
+          return (
+            <g key={`${signal.month}-${signal.signal_type}-${index}`}>
+              <line x1={x} y1={pad.top} x2={x} y2={pad.top + chartH} stroke={color} strokeWidth={1} opacity={index === 0 ? 0.18 : 0.08} />
+              <polygon points={markerPoints} fill={color} stroke="#fff" strokeWidth={1.8} opacity={index === 0 ? 1 : 0.86} />
+              {index === 0 && <circle cx={x} cy={y} r={14} fill="none" stroke={color} strokeWidth={1.6} opacity={0.45} />}
+              <title>{`${signal.signal_type} ${signal.symbol} at ${formatCurrency(signalPrice)} on ${signal.month}: ${signal.reason}`}</title>
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
+}
+
+function getSignalColor(signal: string) {
+  if (signal === "BUY" || signal === "ADD") return "#16a34a";
+  if (signal === "SELL" || signal === "REDUCE") return "#dc2626";
+  return "#64748b";
 }
 
 function QuoteMetric({ label, value }: { label: string; value: string }) {
