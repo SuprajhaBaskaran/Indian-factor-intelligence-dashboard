@@ -80,6 +80,20 @@ function formatShareCount(quantity: number): string {
   return `${quantity} share${quantity === 1 ? "" : "s"}`;
 }
 
+function getHoldingCashValue(holding: UserHolding | undefined): { value: number; source: "latest" | "average" | "none" } {
+  if (!holding) return { value: 0, source: "none" };
+  const quantity = Number(holding.quantity);
+  if (!Number.isFinite(quantity) || quantity <= 0) return { value: 0, source: "none" };
+
+  const latestPrice = getLatestPrice(holding.symbol);
+  if (latestPrice > 0) return { value: quantity * latestPrice, source: "latest" };
+
+  const avgPrice = Number(holding.avgPrice || 0);
+  if (avgPrice > 0) return { value: quantity * avgPrice, source: "average" };
+
+  return { value: 0, source: "none" };
+}
+
 function getFreshPlanTone(action: string): { title: string; detail: string; color: "green" | "amber" | "slate" } {
   if (action === "Deploy") {
     return {
@@ -533,26 +547,36 @@ export function TradePlanPage() {
     const removed = manualRows[index];
     const next = manualRows.filter((_, rowIndex) => rowIndex !== index);
     const nextText = holdingsToText(next);
+    const saleProceeds = getHoldingCashValue(removed);
+    const nextCash = (Number(cashText) || 0) + saleProceeds.value;
+    const nextCashText = String(Number(nextCash.toFixed(2)));
     setHoldingsText(nextText);
+    setCashText(nextCashText);
     setSaveMessage("");
 
     const nextIssues = getHoldingInputIssues(nextText);
     if (nextIssues.length > 0) {
-      setSaveMessage("Holding row removed locally. Fix the remaining holding details, then save your plan.");
+      setSaveMessage("Holding row removed locally and cash was updated. Fix the remaining holding details, then save your plan.");
       return;
     }
 
     try {
       const nextHoldings = parseHoldingsText(nextText);
-      await userData.saveHoldings(nextHoldings as PersistedHolding[]);
-      setSavedInput({ holdings: nextText, cash: cashText });
+      await Promise.all([
+        userData.saveHoldings(nextHoldings as PersistedHolding[]),
+        userData.saveCash(nextCash),
+      ]);
+      setSavedInput({ holdings: nextText, cash: nextCashText });
+      const proceedsMessage = saleProceeds.value > 0
+        ? ` and ${formatCurrency(saleProceeds.value)} was added to free cash${saleProceeds.source === "average" ? " using its average price" : ""}`
+        : "";
       setSaveMessage(
         removed?.symbol
-          ? `${removed.symbol} was removed from your saved holdings.`
+          ? `${removed.symbol} was removed from your saved holdings${proceedsMessage}.`
           : "Holding row removed from your saved holdings."
       );
     } catch (error) {
-      setSaveMessage(error instanceof Error ? error.message : "Removed locally, but could not update saved holdings.");
+      setSaveMessage(error instanceof Error ? error.message : "Removed locally, but could not update saved holdings and cash.");
     }
   };
 
