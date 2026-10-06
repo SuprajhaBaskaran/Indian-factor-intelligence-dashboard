@@ -25,6 +25,34 @@ type TradeMode = "fresh" | "rebalance";
 type HoldingEntryMode = "import" | "manual" | "paste";
 type HoldingSymbolOption = { symbol: string; name: string; sector: string };
 
+const actionDefinitions = [
+  {
+    label: "Buy",
+    tone: "green",
+    body: "You do not own this stock yet, and the current executable plan says to start a position.",
+  },
+  {
+    label: "Add",
+    tone: "green",
+    body: "You already own it, and the executable plan says to increase the position.",
+  },
+  {
+    label: "Reduce",
+    tone: "amber",
+    body: "You still keep some shares, but the plan says your position is above the model target.",
+  },
+  {
+    label: "Sell",
+    tone: "red",
+    body: "You own it, and this month's target is zero shares. This is an exit only if you choose to follow the rebalance plan.",
+  },
+  {
+    label: "Hold / wait",
+    tone: "slate",
+    body: "No trade is required now. Either your holding is close enough, the monthly gate says retain, risk paused buys, or the trade is too small.",
+  },
+];
+
 function getHoldingInputIssues(text: string): string[] {
   return text
     .split(/\r?\n/)
@@ -319,6 +347,9 @@ export function TradePlanPage() {
   const recommendationAvailable = snapshot.latestMonth !== "—" && snapshot.decision !== null;
   const explanation = useMemo(() => buildDeterministicExplanation(dailyRisk, preview.rows), [dailyRisk, preview.rows]);
   const executableRows = useMemo(() => preview.rows.filter((row) => row.finalTradeQuantity !== 0), [preview.rows]);
+  const executableSellRows = useMemo(() => executableRows.filter((row) => row.action === "SELL" || row.action === "REDUCE"), [executableRows]);
+  const executableBuyRows = useMemo(() => executableRows.filter((row) => row.action === "BUY" || row.action === "ADD"), [executableRows]);
+  const nonExecutableRows = useMemo(() => preview.rows.filter((row) => row.finalTradeQuantity === 0), [preview.rows]);
   const deferredCustomStockQuery = useDeferredValue(customStockQuery);
   const liveCustomQuery = customStockQuery.trim().toUpperCase();
   const normalizedCustomQuery = deferredCustomStockQuery.trim().toUpperCase();
@@ -445,11 +476,11 @@ export function TradePlanPage() {
   const tableRows = useMemo(() => hasHoldings ? preview.rows
     .filter((row) => {
       if (filter === "ALL") return true;
-      if (filter === "ACTIONS") return row.finalTradeQuantity !== 0 || ["BUY", "ADD", "SELL", "REDUCE", "PAUSED"].includes(row.action);
+      if (filter === "ACTIONS") return row.finalTradeQuantity !== 0;
       return row.action === filter;
     })
     .sort((a, b) => {
-      const order = { SELL: 0, REDUCE: 1, BUY: 2, ADD: 3, PAUSED: 4, IGNORED: 5, HOLD: 6 };
+      const order = { BUY: 0, ADD: 1, REDUCE: 2, SELL: 3, PAUSED: 4, IGNORED: 5, HOLD: 6 };
       return (order[a.action] ?? 9) - (order[b.action] ?? 9) || b.tradeValue - a.tradeValue;
     })
     .map((row) => ({
@@ -512,11 +543,10 @@ export function TradePlanPage() {
       setAdditionalCashText("0");
       setSavedInput({ holdings: holdingsTextToSave, cash: cashTextToSave });
       if (shouldAddFreshBuys) {
-        setMode("rebalance");
         setHoldingEntryMode("manual");
       }
       setSaveMessage(shouldAddFreshBuys
-        ? "Your plan was saved and the suggested buys were added to your holdings. You can edit fill prices anytime."
+        ? "Your plan was saved and the suggested buys were added to your holdings. This does not create a new sell instruction; review holdings later only when you want a rebalance check."
         : mode === "fresh"
           ? "Your investment amount and draft plan were saved to your account."
           : additionalCash > 0
@@ -678,7 +708,7 @@ export function TradePlanPage() {
               <div>
                 <p className="text-sm font-bold text-slate-950">You are building a fresh plan</p>
                 <p className="mt-1 text-xs leading-5 text-slate-600">
-                  Start with your investment amount. After you actually buy stocks, you can add those holdings here and the page will switch to portfolio review.
+                  Start with your investment amount. After you actually buy stocks, save the filled quantities as holdings; use portfolio review later when you want a rebalance check.
                 </p>
               </div>
             </div>
@@ -1118,11 +1148,11 @@ export function TradePlanPage() {
                       className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                     >
                       <Wallet className="h-4 w-4" />
-                      Save plan and add to holdings
+                      I bought these, add to holdings
                     </button>
                   </div>
                   <p className="mt-2 text-xs leading-5 text-slate-500">
-                    Use the holdings option after you have bought the shown quantities; it saves those stocks, average prices, and leftover cash to your portfolio.
+                    Use the holdings option only after you have actually bought the shown quantities; it records the filled shares and leftover cash. It does not mean the app is asking you to sell those same stocks now.
                   </p>
                 </div>
                 {cashPlan.rows.length > 0 && (
@@ -1322,34 +1352,62 @@ export function TradePlanPage() {
 
               {hasHoldings && <Card title="Monthly Positional View" subtitle="What the assistant understood from your holdings">
                 <p className="text-sm leading-6 text-slate-700">{explanation}</p>
+                <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm leading-6 text-blue-950">
+                  <p className="font-semibold">How to read this section</p>
+                  <p className="mt-1">
+                    These counts describe executable monthly-position trades after the model gate, daily risk overlay, cash check, and minimum-trade filter. Rows with no executable quantity are audit detail, not an order.
+                  </p>
+                </div>
                 <div className="mt-4 grid gap-2 sm:grid-cols-3">
                   <div className="rounded-lg bg-red-50 p-3">
                     <p className="text-xs font-medium text-red-700">Exit / reduce</p>
                     <p className="mt-1 text-lg font-bold text-red-900">
-                      {preview.rows.filter((row) => row.action === "SELL" || row.action === "REDUCE").length}
+                      {executableSellRows.length}
                     </p>
+                    <p className="mt-1 text-xs leading-5 text-red-800">Shares to sell now if you follow this rebalance.</p>
                   </div>
                   <div className="rounded-lg bg-emerald-50 p-3">
                     <p className="text-xs font-medium text-emerald-700">Buy / add</p>
                     <p className="mt-1 text-lg font-bold text-emerald-900">
-                      {preview.rows.filter((row) => row.action === "BUY" || row.action === "ADD").length}
+                      {executableBuyRows.length}
                     </p>
+                    <p className="mt-1 text-xs leading-5 text-emerald-800">New buys or top-ups that passed sizing rules.</p>
                   </div>
                   <div className="rounded-lg bg-slate-50 p-3">
                     <p className="text-xs font-medium text-slate-600">Hold / wait</p>
                     <p className="mt-1 text-lg font-bold text-slate-900">
-                      {preview.rows.filter((row) => row.action === "HOLD" || row.action === "PAUSED" || row.action === "IGNORED").length}
+                      {nonExecutableRows.length}
                     </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-600">No trade now: hold, paused, retained, or too small.</p>
                   </div>
+                </div>
+                <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+                  {actionDefinitions.map((item) => (
+                    <div
+                      key={item.label}
+                      className={`rounded-lg border p-3 ${
+                        item.tone === "green"
+                          ? "border-emerald-100 bg-emerald-50"
+                          : item.tone === "amber"
+                          ? "border-amber-100 bg-amber-50"
+                          : item.tone === "red"
+                          ? "border-red-100 bg-red-50"
+                          : "border-slate-200 bg-slate-50"
+                      }`}
+                    >
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-700">{item.label}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">{item.body}</p>
+                    </div>
+                  ))}
                 </div>
               </Card>}
 
               <Card
                 title="Recommended Changes"
-                subtitle={hasHoldings ? "Actionable trades first. Switch to all model rows only when you want audit detail." : "Waiting for your holdings"}
+                subtitle={hasHoldings ? "Actionable now means final trade quantity is non-zero. Use All only for audit detail." : "Waiting for your holdings"}
                 action={
                   <select value={filter} onChange={(event) => setFilter(event.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-xs">
-                    {["ACTIONS", "ALL", "BUY", "ADD", "SELL", "REDUCE", "PAUSED", "IGNORED", "HOLD"].map((item) => <option key={item} value={item}>{item === "ACTIONS" ? "ACTIONABLE" : item}</option>)}
+                    {["ACTIONS", "ALL", "BUY", "ADD", "SELL", "REDUCE", "PAUSED", "IGNORED", "HOLD"].map((item) => <option key={item} value={item}>{item === "ACTIONS" ? "ACTIONABLE NOW" : item}</option>)}
                   </select>
                 }
               >
