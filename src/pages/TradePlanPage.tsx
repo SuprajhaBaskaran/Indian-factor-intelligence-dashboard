@@ -529,9 +529,31 @@ export function TradePlanPage() {
     setHoldingsText(holdingsToText(pasted));
   };
 
-  const removeManualRow = (index: number) => {
+  const removeManualRow = async (index: number) => {
+    const removed = manualRows[index];
     const next = manualRows.filter((_, rowIndex) => rowIndex !== index);
-    setHoldingsText(holdingsToText(next));
+    const nextText = holdingsToText(next);
+    setHoldingsText(nextText);
+    setSaveMessage("");
+
+    const nextIssues = getHoldingInputIssues(nextText);
+    if (nextIssues.length > 0) {
+      setSaveMessage("Holding row removed locally. Fix the remaining holding details, then save your plan.");
+      return;
+    }
+
+    try {
+      const nextHoldings = parseHoldingsText(nextText);
+      await userData.saveHoldings(nextHoldings as PersistedHolding[]);
+      setSavedInput({ holdings: nextText, cash: cashText });
+      setSaveMessage(
+        removed?.symbol
+          ? `${removed.symbol} was removed from your saved holdings.`
+          : "Holding row removed from your saved holdings."
+      );
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : "Removed locally, but could not update saved holdings.");
+    }
   };
 
   const handleReset = async () => {
@@ -882,7 +904,7 @@ export function TradePlanPage() {
                           </td>
                           <td className="px-3 py-2 text-center">
                             <button
-                              onClick={() => removeManualRow(index)}
+                              onClick={() => void removeManualRow(index)}
                               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 text-slate-500 hover:bg-slate-50"
                               type="button"
                               aria-label={`Remove ${row.symbol || "holding row"}`}
