@@ -626,21 +626,7 @@ export function TradePlanPage() {
             </button>
           </div>
         </div>
-      ) : (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-3">
-              <Upload className="mt-0.5 h-5 w-5 text-blue-700" />
-              <div>
-                <p className="text-sm font-bold text-slate-950">Review your holdings</p>
-                <p className="mt-1 text-xs leading-5 text-slate-600">
-                  Import or manually enter stocks you own, then review sell, reduce, hold, add, or buy actions.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      ) : null}
 
       <div className="grid min-w-0 gap-6 2xl:grid-cols-[430px_minmax(0,1fr)]">
         {/* ── INPUT PANEL ─────────────────────────────────────────────────── */}
