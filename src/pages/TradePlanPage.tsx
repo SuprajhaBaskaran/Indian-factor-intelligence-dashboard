@@ -617,10 +617,19 @@ export function TradePlanPage() {
 
   const handleImportFile = async (file: File | null) => {
     if (!file) return;
-    const text = await file.text();
-    const imported = parseHoldingsCsv(text);
-    setHoldingsText(holdingsToText(imported));
-    setMode("rebalance");
+    try {
+      const text = await file.text();
+      const imported = parseHoldingsCsv(text);
+      if (imported.length === 0) {
+        setSaveMessage("No valid holdings were found in that CSV. Check that it includes stock symbols and quantities.");
+        return;
+      }
+      setHoldingsText(holdingsToText(imported));
+      setMode("rebalance");
+      setSaveMessage(`${imported.length} holdings imported from ${file.name}. Review them, then click Save My Plan to save.`);
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : "Could not import that CSV. Please try another file.");
+    }
   };
 
   const modeSteps = mode === "fresh"
