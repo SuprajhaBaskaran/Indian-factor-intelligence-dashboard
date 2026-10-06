@@ -230,6 +230,7 @@ export function TradePlanPage() {
   const [holdingsText, setHoldingsText] = useState("");
   const [bulkEntryText, setBulkEntryText] = useState("");
   const [cashText, setCashText] = useState("0");
+  const [additionalCashText, setAdditionalCashText] = useState("0");
   const [dataLoading, setDataLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
@@ -245,11 +246,12 @@ export function TradePlanPage() {
     Promise.all([userData.getHoldings(), userData.getCash()]).then(([savedHoldings, savedCash]) => {
       if (cancelled) return;
       setHoldingsText(holdingsToText(savedHoldings));
-      setCashText(String(savedCash + pendingFreshMoney));
+      setCashText(String(hasExistingInvestments ? savedCash : savedCash + pendingFreshMoney));
+      setAdditionalCashText(hasExistingInvestments && pendingFreshMoney > 0 ? String(pendingFreshMoney) : "0");
       setSavedInput({ holdings: holdingsToText(savedHoldings), cash: String(savedCash) });
       setDataLoading(false);
       if (!hasExistingInvestments && savedHoldings.length > 0) setMode("rebalance");
-      if (savedCash === 0 && pendingFreshMoney === 0) void userData.getPreferences().then((prefs) => {
+      if (!hasExistingInvestments && savedCash === 0 && pendingFreshMoney === 0) void userData.getPreferences().then((prefs) => {
         if (!cancelled && prefs.preferredCapital && prefs.preferredCapital > 0) setCashText(String(prefs.preferredCapital));
       }).catch(() => undefined);
     }).catch((error: unknown) => {
@@ -260,17 +262,20 @@ export function TradePlanPage() {
 
   useEffect(() => {
     setRecommendationGenerated(false);
-  }, [cashText, minimumTradeText, mode]);
+  }, [cashText, additionalCashText, minimumTradeText, mode]);
 
   const deferredHoldingsText = useDeferredValue(holdingsText);
   const holdings = useMemo(() => parseHoldingsText(deferredHoldingsText), [deferredHoldingsText]);
   const hasHoldings = holdings.length > 0;
   const manualRows = useMemo(() => parseHoldingEditorRows(holdingsText), [holdingsText]);
   const cash = Number(cashText) || 0;
+  const additionalCash = mode === "rebalance" ? Number(additionalCashText) || 0 : 0;
+  const planCash = cash + additionalCash;
+  const normalizedPlanCashText = String(Number(planCash.toFixed(2)));
   const minimumTradeValue = Number(minimumTradeText) || 0;
   const holdingIssues = getHoldingInputIssues(holdingsText);
 
-  const preview = useMemo(() => buildTradePlan(holdings, cash, minimumTradeValue), [holdings, cash, minimumTradeValue]);
+  const preview = useMemo(() => buildTradePlan(holdings, planCash, minimumTradeValue), [holdings, planCash, minimumTradeValue]);
   const cashPlan = useMemo(() => buildCashDeploymentPlan(cash, [], minimumTradeValue), [cash, minimumTradeValue]);
   const targets = getPortfolioTargets();
   const stocks = getStocks();
@@ -334,8 +339,8 @@ export function TradePlanPage() {
       recommendationUniverses?.universes.nifty500.rows.find((row) => row.symbol === normalizedCustomQuery)
     : null;
   const customPlan = useMemo(
-    () => normalizedCustomQuery ? buildCashDeploymentPlan(cash, [normalizedCustomQuery], minimumTradeValue) : null,
-    [cash, minimumTradeValue, normalizedCustomQuery],
+    () => normalizedCustomQuery ? buildCashDeploymentPlan(planCash, [normalizedCustomQuery], minimumTradeValue) : null,
+    [minimumTradeValue, normalizedCustomQuery, planCash],
   );
   const customTradeRow = normalizedCustomQuery ? preview.rows.find((row) => row.symbol === normalizedCustomQuery) : null;
   const customPrice = normalizedCustomQuery ? getLatestPrice(normalizedCustomQuery) : 0;
@@ -356,7 +361,7 @@ export function TradePlanPage() {
       ? {
           tone: "green" as const,
           title: "Model supports this stock",
-          detail: `${normalizedCustomQuery} is in this month’s basket. Add free cash above, save your plan, and the assistant can size it against the rest of your portfolio.`,
+          detail: `${normalizedCustomQuery} is in this month’s basket. Add more money above, save your plan, and the assistant can size it against the rest of your portfolio.`,
         }
     : customTarget && customPlan && customPlan.rows.length > 0
       ? {
@@ -471,7 +476,7 @@ export function TradePlanPage() {
       }));
       const shouldAddFreshBuys = mode === "fresh" && addFreshBuysToHoldings && freshBuyHoldings.length > 0;
       const holdingsToSave = shouldAddFreshBuys ? freshBuyHoldings : holdings;
-      const cashToSave = shouldAddFreshBuys ? cashPlan.cashLeft : cash;
+      const cashToSave = shouldAddFreshBuys ? cashPlan.cashLeft : planCash;
       const holdingsTextToSave = holdingsToText(holdingsToSave);
       const cashTextToSave = String(Number(cashToSave.toFixed(2)));
 
@@ -504,6 +509,7 @@ export function TradePlanPage() {
       if (user?.id && pendingFreshMoney > 0) markFreshMoneyIncluded(user.id);
       setHoldingsText(holdingsTextToSave);
       setCashText(cashTextToSave);
+      setAdditionalCashText("0");
       setSavedInput({ holdings: holdingsTextToSave, cash: cashTextToSave });
       if (shouldAddFreshBuys) {
         setMode("rebalance");
@@ -513,7 +519,9 @@ export function TradePlanPage() {
         ? "Your plan was saved and the suggested buys were added to your holdings. You can edit fill prices anytime."
         : mode === "fresh"
           ? "Your investment amount and draft plan were saved to your account."
-          : "Your holdings, cash, and draft plan were saved to your account.");
+          : additionalCash > 0
+            ? "Your holdings, added money, cash, and draft plan were saved to your account."
+            : "Your holdings, cash, and draft plan were saved to your account.");
     } catch (error) {
       setSaveMessage(error instanceof Error ? error.message : "Could not save your plan. Please try again.");
     }
@@ -524,7 +532,7 @@ export function TradePlanPage() {
     setRecommendationGenerated(true);
   };
 
-  const planEdited = savedInput !== null && (savedInput.holdings !== holdingsText || savedInput.cash !== cashText);
+  const planEdited = savedInput !== null && (savedInput.holdings !== holdingsText || savedInput.cash !== normalizedPlanCashText);
 
   const updateManualRow = (index: number, patch: Partial<UserHolding>) => {
     const next = manualRows.map((row, rowIndex) =>
@@ -586,6 +594,8 @@ export function TradePlanPage() {
       setHoldingsText("");
       setBulkEntryText("");
       setCashText("0");
+      setAdditionalCashText("0");
+      setSavedInput({ holdings: "", cash: "0" });
       setSaveMessage("Saved portfolio cleared.");
     } catch (error) { setSaveMessage(error instanceof Error ? error.message : "Could not clear saved portfolio."); }
   };
@@ -680,7 +690,7 @@ export function TradePlanPage() {
           title={mode === "fresh" ? "Tell the assistant your budget" : "Your Holdings"}
           subtitle={mode === "fresh" ? "Nothing is recommended until you generate a plan." : "Stocks you currently own"}
         >
-          <div className={mode === "fresh" ? "space-y-4" : "grid grid-cols-2 gap-3"}>
+          <div className={mode === "fresh" ? "space-y-4" : "grid grid-cols-1 gap-3 md:grid-cols-3"}>
             <label className="text-xs font-medium text-slate-600">
               {mode === "fresh" ? "Amount to invest (₹)" : "Free cash available (₹)"}
               <input
@@ -689,6 +699,7 @@ export function TradePlanPage() {
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg font-bold text-slate-950 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 placeholder="50000"
               />
+              {mode === "rebalance" && <span className="mt-1 block text-[11px] font-normal text-slate-500">Already available in your portfolio.</span>}
             </label>
             {mode === "fresh" ? (
               <details className="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -703,16 +714,35 @@ export function TradePlanPage() {
                 </label>
               </details>
             ) : (
-              <label className="text-xs font-medium text-slate-600">
-                <TermTooltip term="minimum trade size">Minimum trade size (₹)</TermTooltip>
-                <input
-                  value={minimumTradeText}
-                  onChange={(event) => setMinimumTradeText(event.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                />
-              </label>
+              <>
+                <label className="text-xs font-medium text-slate-600">
+                  Add more money (₹)
+                  <input
+                    value={additionalCashText}
+                    onChange={(event) => setAdditionalCashText(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg font-bold text-slate-950 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    placeholder="0"
+                  />
+                  <span className="mt-1 block text-[11px] font-normal text-slate-500">Temporary top-up for this plan.</span>
+                </label>
+                <label className="text-xs font-medium text-slate-600">
+                  <TermTooltip term="minimum trade size">Minimum trade size (₹)</TermTooltip>
+                  <input
+                    value={minimumTradeText}
+                    onChange={(event) => setMinimumTradeText(event.target.value)}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  />
+                  <span className="mt-1 block text-[11px] font-normal text-slate-500">Plan cash: {formatCurrency(planCash)}</span>
+                </label>
+              </>
             )}
           </div>
+
+          {mode === "rebalance" && additionalCash > 0 && (
+            <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs leading-5 text-emerald-900">
+              Added money is included in this recommendation preview. Saving My Plan will move {formatCurrency(additionalCash)} into free cash.
+            </div>
+          )}
 
           {mode === "fresh" && (
             <div className="mt-5 space-y-4">
