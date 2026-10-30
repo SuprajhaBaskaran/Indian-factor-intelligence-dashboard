@@ -1,15 +1,15 @@
 {
-  "run_id": "20261029T194709Z",
-  "requested_date": "2026-10-29",
-  "resolved_date": "2026-10-29",
+  "run_id": "20261030T143122Z",
+  "requested_date": "2026-10-30",
+  "resolved_date": "2026-10-30",
   "status": "ok",
   "stock_rows": 189,
-  "index_rows": 0,
+  "index_rows": 2,
   "updated_stock_monthly_rows": 189,
   "updated_factor_score_rows": 189,
   "updated_regime_feature_rows": 1,
-  "message": "Inserted/updated real NSE EOD rows from https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_29102026.csv",
-  "started_at": "2026-10-29T19:47:09.699527+00:00",
-  "finished_at": "2026-10-29T19:47:18.688011+00:00",
+  "message": "Inserted/updated real NSE EOD rows from https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_30102026.csv",
+  "started_at": "2026-10-30T14:31:22.866846+00:00",
+  "finished_at": "2026-10-30T14:31:31.234365+00:00",
   "updated_market_monthly_rows": 2
 }
